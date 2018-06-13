@@ -308,7 +308,7 @@ void recv_stream_cb(struct bufferevent *connect_hbserver_bev, HB_VOID *event_arg
 				break;
 			}
 			data_len = (cmd_head.cmd_length);
-			HB_S32 rtp_data_buf_pre_size = (((data_len / MAX_RTP_PACKET_SIZE) + 1) * 20) + MAX_RTP_PACKET_SIZE;
+			HB_S32 rtp_data_buf_pre_size = (((data_len / MAX_RTP_PACKET_SIZE) + 1) * 20) + MAX_RTP_PACKET_SIZE;//20为（rtp头）
 			//HB_S32 rtp_data_buf_pre_size = 10240;
 			HB_S32 rtp_data_buf_len = data_len + rtp_data_buf_pre_size;
 			QUEUE_ARGS_OBJ queue_arg;

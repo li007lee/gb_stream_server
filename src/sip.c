@@ -192,7 +192,6 @@ static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_i
 	HB_S32 count;
 
 //	char body[1024] = { 0 };
-//
 //	strncpy(body, "v=0\r\n"
 //					"o=34020000002000000001 0 0 IN IP4 192.168.116.19\r\n"
 //					"s=Play\r\n"
@@ -205,9 +204,7 @@ static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_i
 //					"a=rtpmap:98 H264/90000\r\n"
 //					"a=sms:223.223.199.58:700/5a12caf8\r\n"
 //					"y=0201002353\r\n", sizeof(body));
-//
 //	printf("body :\n[%s]\n", body->body);
-//	memset(sip_dev_info, 0, sizeof(SIP_DEV_ARGS_OBJ));
 
 	sdp = sdp_parse(body->body);
 	count = sdp_media_count(sdp);
@@ -216,15 +213,15 @@ static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_i
 		sdp_destroy(sdp);
 		return -1;
 	}
-	sdp_origin_get(sdp, &p_username, &p_session, &p_version, &p_network, &p_addrtype, &p_address);
+	sdp_origin_get(sdp, (const HB_CHAR **)&p_username, (const HB_CHAR **)&p_session, (const HB_CHAR **)&p_version, (const HB_CHAR **)&p_network, (const HB_CHAR **)&p_addrtype, (const HB_CHAR **)&p_address);
 
 	strncpy(sip_dev_info->st_sip_dev_id, p_username, sizeof(sip_dev_info->st_sip_dev_id));
 	strncpy(sip_dev_info->st_push_ip, p_address, sizeof(sip_dev_info->st_push_ip));
 
-	const HB_CHAR *y = sdp_y_get(sdp);
-	if (NULL != y)
+	const HB_CHAR *ssrc = sdp_y_get(sdp);
+	if (NULL != ssrc)
 	{
-		strncpy(sip_dev_info->st_y, y, sizeof(sip_dev_info->st_y));
+		strncpy(sip_dev_info->st_y, ssrc, sizeof(sip_dev_info->st_y));
 	}
 
 	osip_call_id_t *call_id = osip_message_get_call_id(*sip);

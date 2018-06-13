@@ -23,7 +23,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>      /* for setting errno */
+//#include <errno.h>      /* for setting errno */
 #include <sys/types.h>
 #include <sys/uio.h>    /* for READ_ERRCHECK() and write() */
 #include <fcntl.h>      /* for open() etc */

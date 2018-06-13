@@ -177,24 +177,13 @@ HB_VOID send_rtp_to_client_task_err_cb(struct sttask *ptask, long reasons)
 
 HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 {
-
-//	udp_socket = setup_datagram_socket(19750, udp_socket);
 	ps_init(25);
-//	int ps_fd = open("./out_file.PS", O_RDWR|O_CREAT, 0777);
-	//stpool_task_detach(ptsk);
 	struct evbuffer *evbuf = NULL;
 	DEV_NODE_HANDLE dev_node = (DEV_NODE_HANDLE) (ptsk->task_arg);
 	printf("\n@@@@@@@@@@@  send_rtp_to_client_task TASK start!dev_addr=%p\n", dev_node);
 	HB_S32 ret = 0;
 	HB_S32 rtp_data_nums = 0;
 	HB_U32 send_interval = 0;
-
-#if 0
-	HB_CHAR *tmp_pos_udp = NULL;
-	HB_U32 tmp_len_udp = 0;
-	HB_U32 rtp_pack_len_udp = 0;
-#endif
-
 	HB_CHAR *video_data_node = NULL;
 	HB_S32 rtp_data_buf_pre_size = 0;
 	BOX_CTRL_CMD_OBJ cmd_head;
@@ -215,9 +204,14 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 	HB_S32 err_timestamp_times = 0;	//时间戳后来的比先来的小，这样的错误次数计数，调试打印用
 
 	memcpy(dev_id, dev_node->dev_id, 127);
+//	int ps_fd = open("./test.ps", O_RDWR|O_CREAT, 0777);
+
+	char *p_ps_data = (char*) malloc(512 * 1400);
+	int ps_data_len = 0;
+
 	for (;;)
 	{
-		printf("\n111111111   [%d]\n", list_size(&(dev_node->client_node_head)));
+//		printf("\n111111111   [%d]\n", list_size(&(dev_node->client_node_head)));
 		video_data_node = NULL;
 		memset(&cmd_head, 0, sizeof(BOX_CTRL_CMD_OBJ));
 		//客户节点为0或发送线程标识为退出状态,表示此通道可以关闭
@@ -266,7 +260,6 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 		if (video_data_node != NULL)
 		{
 			memcpy(&cmd_head, video_data_node + rtp_data_buf_pre_size, 32);
-			//cmd_head = (BOX_CTRL_CMD_HANDLE)video_data_node;
 #if 1
 			if (0 == timestamp_old)
 			{
@@ -311,35 +304,15 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 			cur_node_data_size = 0;
 			if (I_FRAME == cmd_head.data_type) //I帧
 			{
-				//write_frame_to_mp4_file(mp4_context, video_data_node+32, cmd_head.cmd_length, 1);
-				char *p_ps_data = (char*) malloc(512 * 1400);
-				int ps_data_len = 0;
-				char *es_data = (char*) malloc(512 * 1400);
-				memcpy(es_data, video_data_node + rtp_data_buf_pre_size + 32, cmd_head.cmd_length);
-				ps_process(es_data, cmd_head.cmd_length, 1, p_ps_data + rtp_data_buf_pre_size, &ps_data_len);
-				//write(ps_fd, p_ps_data+rtp_data_buf_pre_size, ps_data_len);
+				ps_process(video_data_node + rtp_data_buf_pre_size + 32, cmd_head.cmd_length, 1, p_ps_data+rtp_data_buf_pre_size, &ps_data_len);
+//    			write(ps_fd, p_ps_data+rtp_data_buf_pre_size, ps_data_len);
 				cur_node_data_size = pack_ps_rtp_and_add_node(dev_node, p_ps_data, ps_data_len, itime, rtp_data_buf_pre_size, 1);
-				video_data_node = p_ps_data;
-				free(es_data);
-//    			write(ps_fd, video_data_node, cur_node_data_size);
-//    			printf("\n***********I---ps_data_len = %d\n", ps_data_len);
-				//cur_node_data_size = pack_video_rtp_and_add_node(p_stream_node, video_data_node, cmd_head.cmd_length, itime, rtp_data_buf_pre_size, 1, set_sps_pps_to_data_base_flag, dev_id);
 			}
 			else if (BP_FRAME == cmd_head.data_type) //P帧
 			{
-				char *p_ps_data = (char*) malloc(512 * 1400);
-				int ps_data_len = 0;
-				char *es_data = (char*) malloc(512 * 1400);
-				memcpy(es_data, video_data_node + rtp_data_buf_pre_size + 32, cmd_head.cmd_length);
-				ps_process(es_data, cmd_head.cmd_length, 0, p_ps_data + rtp_data_buf_pre_size, &ps_data_len);
-				//write(ps_fd, p_ps_data+rtp_data_buf_pre_size, ps_data_len);
+				ps_process(video_data_node + rtp_data_buf_pre_size + 32, cmd_head.cmd_length, 0, p_ps_data + rtp_data_buf_pre_size, &ps_data_len);
+//				write(ps_fd, p_ps_data + rtp_data_buf_pre_size, ps_data_len);
 				cur_node_data_size = pack_ps_rtp_and_add_node(dev_node, p_ps_data, ps_data_len, itime, rtp_data_buf_pre_size, 0);
-				video_data_node = p_ps_data;
-				free(es_data);
-//    			write(ps_fd, video_data_node, cur_node_data_size);
-//    			printf("\n***********P---ps_data_len = %d\n", ps_data_len);
-				//write_frame_to_mp4_file(mp4_context, video_data_node+32, cmd_head.cmd_length, 0);
-				//cur_node_data_size = pack_video_rtp_and_add_node(p_stream_node, video_data_node, cmd_head.cmd_length, itime, rtp_data_buf_pre_size, 0, set_sps_pps_to_data_base_flag, dev_id);
 			}
 			else
 			{
@@ -370,6 +343,8 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 			//pthread_mutex_lock(&(p_stream_node->client_rtp_mutex));
 			//list_delete(&(p_stream_node->stream_data_node_head), video_data_node);
 			//je_free(video_data_node);
+			free(video_data_node);
+			video_data_node = NULL;
 			usleep(send_interval);
 			continue;
 			HB_S32 i = 0;
@@ -523,6 +498,8 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 	}
 
 ERR:
+	free(p_ps_data);
+	p_ps_data = NULL;
 	if (2 == dev_node->rtp_client_node_send_data_thread_flag) //rtp发送线程先出现异常
 	{
 		while (dev_node->get_stream_thread_start_flag != 2)
