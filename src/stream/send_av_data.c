@@ -19,6 +19,7 @@
 #include "../common/common_args.h"
 #include "../common/hash_table.h"
 #include "../common/lf_queue.h"
+#include "ps.h"
 //#include "jemalloc/jemalloc.h"
 
 //#include "common/elr_mpl.h"
@@ -177,7 +178,8 @@ HB_VOID send_rtp_to_client_task_err_cb(struct sttask *ptask, long reasons)
 
 HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 {
-	ps_init(25);
+	PS_FRAME_INFO_OBJ ps_info;
+//	ps_init(25);
 	struct evbuffer *evbuf = NULL;
 	DEV_NODE_HANDLE dev_node = (DEV_NODE_HANDLE) (ptsk->task_arg);
 	printf("\n@@@@@@@@@@@  send_rtp_to_client_task TASK start!dev_addr=%p\n", dev_node);
@@ -203,6 +205,7 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 	HB_U64 timestamp_current = 0;	//当前帧时间戳
 	HB_S32 err_timestamp_times = 0;	//时间戳后来的比先来的小，这样的错误次数计数，调试打印用
 
+	memset(&ps_info, 0, sizeof(PS_FRAME_INFO_OBJ));
 	memcpy(dev_id, dev_node->dev_id, 127);
 //	int ps_fd = open("./test.ps", O_RDWR|O_CREAT, 0777);
 
@@ -299,18 +302,23 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 #endif
 
 			itime += add_time;
+			if (add_time <= 0)
+			{
+				add_time = 3600;
+			}
+
 //			itime += 3600;
 //			printf("\n***************  v_pts=%lu rtsp_time_stamp =%lu, add_time=%lu   \n", (HB_U64) (cmd_head.v_pts), itime, add_time);
 			cur_node_data_size = 0;
 			if (I_FRAME == cmd_head.data_type) //I帧
 			{
-				ps_process(video_data_node + rtp_data_buf_pre_size + 32, cmd_head.cmd_length, 1, p_ps_data+rtp_data_buf_pre_size, &ps_data_len);
+				ps_process(&ps_info, video_data_node + rtp_data_buf_pre_size + 32, cmd_head.cmd_length, 1, p_ps_data+rtp_data_buf_pre_size, &ps_data_len, itime, add_time);
 //    			write(ps_fd, p_ps_data+rtp_data_buf_pre_size, ps_data_len);
 				cur_node_data_size = pack_ps_rtp_and_add_node(dev_node, p_ps_data, ps_data_len, itime, rtp_data_buf_pre_size, 1);
 			}
 			else if (BP_FRAME == cmd_head.data_type) //P帧
 			{
-				ps_process(video_data_node + rtp_data_buf_pre_size + 32, cmd_head.cmd_length, 0, p_ps_data + rtp_data_buf_pre_size, &ps_data_len);
+				ps_process(&ps_info, video_data_node + rtp_data_buf_pre_size + 32, cmd_head.cmd_length, 0, p_ps_data + rtp_data_buf_pre_size, &ps_data_len, itime, add_time);
 //				write(ps_fd, p_ps_data + rtp_data_buf_pre_size, ps_data_len);
 				cur_node_data_size = pack_ps_rtp_and_add_node(dev_node, p_ps_data, ps_data_len, itime, rtp_data_buf_pre_size, 0);
 			}

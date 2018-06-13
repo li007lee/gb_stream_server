@@ -57,7 +57,7 @@ typedef struct _tagPS_DATA
 //		HB_SUCCESS - 成功
 // 说明：
 ////////////////////////////////////////////////////////////////////////////////
-HB_S32 ps_init(HB_S32 framerate);
+HB_S32 ps_init(PS_FRAME_INFO_HANDLE p_ps_info);
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,7 +70,7 @@ HB_S32 ps_init(HB_S32 framerate);
 //		HB_SUCCESS - 成功
 // 说明：
 ////////////////////////////////////////////////////////////////////////////////
-HB_S32 ps_framerate_updata(HB_S32 framerate);
+//HB_S32 ps_framerate_updata(HB_S32 framerate);
 
 ////////////////////////////////////////////////////////////////////////////////
 // 函数名：ps_process
@@ -85,5 +85,5 @@ HB_S32 ps_framerate_updata(HB_S32 framerate);
 //		HB_SUCCESS - 成功
 // 说明：
 ////////////////////////////////////////////////////////////////////////////////
-HB_S32 ps_process(HB_CHAR* p_srcbuf, HB_S32 frame_len, ES_FRAME_TYPE_E frame_type, HB_CHAR* p_ps_data, HB_S32* ps_data_len);
+HB_S32 ps_process(PS_FRAME_INFO_HANDLE p_ps_info, HB_CHAR* p_srcbuf, HB_S32 frame_len, ES_FRAME_TYPE_E frame_type, HB_CHAR* p_ps_data, HB_S32* ps_data_len, HB_U64 iTime, HB_U64 add_time);
 #endif

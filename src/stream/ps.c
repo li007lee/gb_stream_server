@@ -327,7 +327,7 @@ typedef struct _tagPS_PESHEADER
 } __attribute__((packed)) PS_PESHEADER_OBJ, *PS_PESHEADER_HANDLE;
 
 
-static PS_FRAME_INFO_OBJ ps_info;
+//static PS_FRAME_INFO_OBJ ps_info;
 
 ////////////////////////////////////////////////////////////////////////////////
 // 函数名：ps_pes_video_init
@@ -635,7 +635,7 @@ static HB_VOID ps_systemheader_make(PS_SYSTEMHEADER_HANDLE p_systemheader)
 //  	无
 // 说明：
 ////////////////////////////////////////////////////////////////////////////////
-static HB_VOID ps_pesheader_make(PS_PESHEADER_HANDLE p_pesheader, HB_S32 frame_len, ES_FRAME_TYPE_E frame_type)
+static HB_VOID ps_pesheader_make(PS_FRAME_INFO_HANDLE p_ps_info, PS_PESHEADER_HANDLE p_pesheader, HB_S32 frame_len, ES_FRAME_TYPE_E frame_type, HB_U64 add_time)
 {
 	HB_U32 ulTmp = 0;
 	HB_U8 ucTmp = 0;
@@ -647,9 +647,10 @@ static HB_VOID ps_pesheader_make(PS_PESHEADER_HANDLE p_pesheader, HB_S32 frame_l
 	{
 		//video
 		//HB_U32 uiFrameNo = ps_info.vid_frame_number;
-		ulFrameTime = 90000 / ps_info.framerate;
+//		ulFrameTime = 90000 / p_ps_info->framerate;
+		ulFrameTime = add_time;
 		//ulDTS = ulFrameTime * uiFrameNo;
-		ulDTS = ps_info.vid_timestamp;
+		ulDTS = p_ps_info->vid_timestamp;
 		ulPTS = ulDTS + ulFrameTime;
 
 		ps_pts(ulPTS, &ucTmp, &ulTmp);
@@ -663,8 +664,8 @@ static HB_VOID ps_pesheader_make(PS_PESHEADER_HANDLE p_pesheader, HB_S32 frame_l
 	}
 	else if(ES_FRAME_AUDIO == frame_type)
 	{
-		ulDTS = ps_info.aud_timestamp;
-		ulPTS = ps_info.aud_timestamp;
+		ulDTS = p_ps_info->aud_timestamp;
+		ulPTS = p_ps_info->aud_timestamp;
 		ps_pts(ulPTS, &ucTmp, &ulTmp);
 		PESH_SET_PTSP(p_pesheader, ucTmp);
 		PESH_SET_PTS(p_pesheader, htonl(ulTmp));
@@ -693,10 +694,10 @@ static HB_VOID ps_pesheader_make(PS_PESHEADER_HANDLE p_pesheader, HB_S32 frame_l
 //		HB_SUCCESS - 成功
 // 说明：
 ////////////////////////////////////////////////////////////////////////////////
-HB_S32 ps_init(HB_S32 framerate)
+HB_S32 ps_init(PS_FRAME_INFO_HANDLE p_ps_info)
 {
-	memset(&ps_info, 0, sizeof(PS_FRAME_INFO_OBJ));
-	ps_info.framerate = framerate;
+	memset(p_ps_info, 0, sizeof(PS_FRAME_INFO_OBJ));
+//	p_ps_info->framerate = framerate;
 	return HB_SUCCESS;
 }
 
@@ -710,11 +711,11 @@ HB_S32 ps_init(HB_S32 framerate)
 //		HB_SUCCESS - 成功
 // 说明：
 ////////////////////////////////////////////////////////////////////////////////
-HB_S32 ps_framerate_updata(HB_S32 framerate)
-{
-	ps_info.framerate = framerate;
-	return HB_SUCCESS;
-}
+//HB_S32 ps_framerate_updata(HB_S32 framerate)
+//{
+//	ps_info.framerate = framerate;
+//	return HB_SUCCESS;
+//}
 
 ////////////////////////////////////////////////////////////////////////////////
 // 函数名：ps_process
@@ -730,13 +731,14 @@ HB_S32 ps_framerate_updata(HB_S32 framerate)
 // 说明：
 ////////////////////////////////////////////////////////////////////////////////
 //HB_S32 ps_process(HB_CHAR* p_srcbuf, HB_S32 frame_len, ES_FRAME_TYPE_E frame_type, PS_DATA_HANDLE p_ps_data)
-HB_S32 ps_process(HB_CHAR* p_srcbuf, HB_S32 frame_len, ES_FRAME_TYPE_E frame_type, HB_CHAR* p_ps_data, HB_S32* p_ps_data_len)
+HB_S32 ps_process(PS_FRAME_INFO_HANDLE p_ps_info, HB_CHAR* p_srcbuf, HB_S32 frame_len, ES_FRAME_TYPE_E frame_type, HB_CHAR* p_ps_data, HB_S32* p_ps_data_len, HB_U64 iTime, HB_U64 add_time)
 {	
 	HB_U32  uioffset = 0;
 	HB_U32 uiTmpLen = 0;
 	
 //	HB_U32  uitimestamp = 0;
-	HB_U32  uitimestamp = 90000 / ps_info.framerate * ps_info.vid_frame_number;
+//	HB_U32  uitimestamp = 90000 / p_ps_info->framerate * p_ps_info->vid_frame_number;
+	HB_U64  uitimestamp = iTime;
 #if 0
 	if (ps_info.vid_timestamp > ps_info.aud_timestamp)
 	{
@@ -787,7 +789,7 @@ HB_S32 ps_process(HB_CHAR* p_srcbuf, HB_S32 frame_len, ES_FRAME_TYPE_E frame_typ
 			// pes header
 			PS_PESHEADER_HANDLE p_pesheader = (PS_PESHEADER_HANDLE)(p_ps_data + uioffset);
 			ps_pes_video_init(p_pesheader);
-			ps_pesheader_make(p_pesheader, frame_len, frame_type);
+			ps_pesheader_make(p_ps_info, p_pesheader, frame_len, frame_type, add_time);
 			uioffset += sizeof(PS_PESHEADER_OBJ);
 
 			// copy data
@@ -806,14 +808,14 @@ HB_S32 ps_process(HB_CHAR* p_srcbuf, HB_S32 frame_len, ES_FRAME_TYPE_E frame_typ
 			p_srcbuf += uiTmpLen;
 			uioffset += uiTmpLen;
 		}
-		ps_info.vid_frame_number++;
-		ps_info.vid_timestamp += 90000/ps_info.framerate;
+//		p_ps_info->vid_frame_number++;
+//		p_ps_info->vid_timestamp += 90000/p_ps_info->framerate;
 		*(p_ps_data_len) = uioffset;
 	}
 
 	else if (ES_FRAME_AUDIO == frame_type)
 	{
-		uitimestamp = ps_info.aud_timestamp;
+		uitimestamp = p_ps_info->aud_timestamp;
 		//TRACE_LOG("pack audio \n\n");
 		//pack header
 
@@ -840,7 +842,7 @@ HB_S32 ps_process(HB_CHAR* p_srcbuf, HB_S32 frame_len, ES_FRAME_TYPE_E frame_typ
             // pes header
             PS_PESHEADER_HANDLE p_pesheader = (PS_PESHEADER_HANDLE)(p_ps_data + uioffset);
             ps_pes_audio_init(p_pesheader);
-            ps_pesheader_make(p_pesheader, frame_len, frame_type);
+            ps_pesheader_make(p_ps_info, p_pesheader, frame_len, frame_type, add_time);
             uioffset += sizeof(PS_PESHEADER_OBJ);
 
 			// copy data
@@ -860,9 +862,9 @@ HB_S32 ps_process(HB_CHAR* p_srcbuf, HB_S32 frame_len, ES_FRAME_TYPE_E frame_typ
 			uioffset += uiTmpLen;
         }
 
-		ps_info.aud_frame_number++;
+		p_ps_info->aud_frame_number++;
 		//ps_info.aud_timestamp += 90000 / (1000 / 40);
-		ps_info.aud_timestamp += 320;
+		p_ps_info->aud_timestamp += 320;
 		*p_ps_data_len = uioffset;
 
 	}

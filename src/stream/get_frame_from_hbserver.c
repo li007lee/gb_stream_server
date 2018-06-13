@@ -549,12 +549,12 @@ HB_VOID connect_event_cb(struct bufferevent *connect_hbserver_bev, HB_S16 event,
 	{
 		HB_CHAR cmd_buf[1024] = { 0 };
 		TRACE_LOG("the client has connected to server\n");
-#if 0
+#if 1
 		snprintf(cmd_buf, sizeof(cmd_buf),
 						"<TYPE>StartStream</TYPE><DVRName>%s</DVRName><ChnNo>%d</ChnNo><StreamType>%d</StreamType><TType>0</TType>", dev_node->dev_id,
 						dev_node->dev_chl_num, dev_node->stream_type);
 #endif
-#if 1
+#if 0
 		snprintf(cmd_buf, sizeof(cmd_buf),
 						"<TYPE>StartStream</TYPE><DVRName>%s</DVRName><ChnNo>%d</ChnNo><StreamType>%d</StreamType><TType>0</TType>", "12345",
 						dev_node->dev_chl_num, dev_node->stream_type);
@@ -627,10 +627,10 @@ HB_S32 play_rtsp_video_from_hbserver(DEV_NODE_HANDLE dev_node)
 	//初始化server_addr
 	memset(&stServerAddr, 0, sizeof(stServerAddr));
 	stServerAddr.sin_family = AF_INET;
-//	stServerAddr.sin_port = htons(dev_node->dev_port);
-//	inet_aton(dev_node->dev_ip, &stServerAddr.sin_addr);
-	stServerAddr.sin_port = htons(600);
-	inet_aton("192.168.118.2", &stServerAddr.sin_addr);
+	stServerAddr.sin_port = htons(dev_node->dev_port);
+	inet_aton(dev_node->dev_ip, &stServerAddr.sin_addr);
+//	stServerAddr.sin_port = htons(600);
+//	inet_aton("192.168.118.2", &stServerAddr.sin_addr);
 
 	//创建接收视频流数据的bev，并且与rtsp客户端请求视频创建的bev放在同一个base里面，可以减少锁的数量，因为同一个base里，bev都是串行的
 	connect_hbserver_bev = bufferevent_socket_new(dev_node->work_base, -1,

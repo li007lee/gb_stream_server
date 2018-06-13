@@ -90,11 +90,11 @@ DEV_NODE_HANDLE InsertNodeToDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SI
 		//创建设备节点
 		dev_node = create_dev_node(pHashTable, mHashValue, p_sip_node);
 		list_append(&(pHashTable->stream_node_head[mHashValue].dev_node_head), (HB_VOID*)dev_node);
-		printf("$$$$$$$$$$$$$$$$$$$$$$$don't have dev_node");
+		printf("$$$$$$$$$$$$$$$$$$$$$$$don't have dev_node\n");
 	}
 	else
 	{
-		printf("$$$$$$$$$$$$$$$$$$$$$$$have dev_node");
+		printf("$$$$$$$$$$$$$$$$$$$$$$$have dev_node\n");
 	}
 
 	pthread_mutex_unlock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
