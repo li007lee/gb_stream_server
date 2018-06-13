@@ -162,16 +162,15 @@ typedef struct _tagRTSP_CMD_ARGS
 	HB_S32    reply_code;
 }RTSP_CMD_ARGS_OBJ, *RTSP_CMD_ARGS_HANDLE;
 
-//创建哈希结构
 STREAM_HASH_TABLE_HANDLE DevHashTableCreate(HB_U32 table_len);
-///initial hash table
 HB_VOID DevHashTableInit(STREAM_HASH_TABLE_HANDLE p_hash_table);
 DEV_NODE_HANDLE InsertNodeToDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE p_sip_node);
-//DEV_NODE_HANDLE FindDevFromDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE p_sip_node);
-//获取哈希表的状态
+DEV_NODE_HANDLE FindDevFromDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE sip_node);
+HB_VOID DelNodeFromDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, DEV_NODE_HANDLE dev_node);
+RTP_CLIENT_TRANSPORT_HANDLE FindClientNode(DEV_NODE_HANDLE dev_node, HB_CHAR *call_id);
 HB_VOID GetDevHashState(STREAM_HASH_TABLE_HANDLE pHashTable, HB_CHAR *hash_state_json);
 
 
-RTP_CLIENT_TRANSPORT_HANDLE FindClientNode(DEV_NODE_HANDLE dev_node, HB_CHAR *call_id);
-
 #endif /* SRC_SERVER_HASH_AND_LIST_SIP_DEV_H_ */
+
+

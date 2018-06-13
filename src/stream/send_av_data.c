@@ -123,6 +123,7 @@ static HB_S32 destroy_client_rtp_list(list_t *client_node_head)
 		//printf("\n*********************    list size=[%d]\n", list_size(client_node_head));
 		rtp_client_node = list_get_at(client_node_head, 0);
 		list_delete(client_node_head, rtp_client_node);
+//		list_delete_at(client_node_head, 0);
 		if (rtp_client_node->bev != NULL)
 		{
 			//bufferevent_disable(rtp_client_node->bev, EV_READ|EV_WRITE);
@@ -198,7 +199,6 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 	HB_S32 rtp_data_buf_pre_size = 0;
 	BOX_CTRL_CMD_OBJ cmd_head;
 	memset(&cmd_head, 0, sizeof(BOX_CTRL_CMD_OBJ));
-	//HB_CHAR *node_data_buf = NULL;
 	HB_U32 cur_node_data_size = 0;
 	HB_S32 set_sps_pps_to_data_base_flag = 0;
 	HB_S32 hash_value = 0;
@@ -214,13 +214,10 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 	HB_U64 timestamp_current = 0;	//当前帧时间戳
 	HB_S32 err_timestamp_times = 0;	//时间戳后来的比先来的小，这样的错误次数计数，调试打印用
 
-	//Mp4Context *mp4_context = NULL;
-	//mp4_context = mp4_fopen("test.mp4", "wb");
-
 	memcpy(dev_id, dev_node->dev_id, 127);
 	for (;;)
 	{
-//		printf("\n111111111   [%d]\n", list_size(&(dev_node->client_node_head)));
+		printf("\n111111111   [%d]\n", list_size(&(dev_node->client_node_head)));
 		video_data_node = NULL;
 		memset(&cmd_head, 0, sizeof(BOX_CTRL_CMD_OBJ));
 		//客户节点为0或发送线程标识为退出状态,表示此通道可以关闭
@@ -311,7 +308,6 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 			itime += add_time;
 //			itime += 3600;
 //			printf("\n***************  v_pts=%lu rtsp_time_stamp =%lu, add_time=%lu   \n", (HB_U64) (cmd_head.v_pts), itime, add_time);
-//			continue;
 			cur_node_data_size = 0;
 			if (I_FRAME == cmd_head.data_type) //I帧
 			{
@@ -529,114 +525,27 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 ERR:
 	if (2 == dev_node->rtp_client_node_send_data_thread_flag) //rtp发送线程先出现异常
 	{
-
 		while (dev_node->get_stream_thread_start_flag != 2)
 		{
 			usleep(5000);
 		}
-		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
-		list_remove(&(stream_hash_table->stream_node_head[hash_value].dev_node_head), dev_node);
-		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
-
-		delete_rtp_data_list(dev_node->stream_data_queue);
-		nolock_queue_destroy(&(dev_node->stream_data_queue));
-		//destroy_client_rtp_list(&(dev_node->client_node_head)); //释放rtp客户队列
-		if (NULL != dev_node->get_stream_from_source)
-		{
-			free(dev_node->get_stream_from_source);
-			dev_node->get_stream_from_source = NULL;
-		}
-
-		free(dev_node);
-		dev_node = NULL;
-		send_rtp_to_client_task_err_cb(ptsk, 0);
-		TRACE_ERR("###################send rtp data thread exit 01 [ret = %d]####################\n", ret);
-		return;
 	}
-	else
+
+	DelNodeFromDevHashTable(stream_hash_table, dev_node);
+	delete_rtp_data_list(dev_node->stream_data_queue);
+	nolock_queue_destroy(&(dev_node->stream_data_queue));
+	destroy_client_rtp_list(&(dev_node->client_node_head)); //释放rtp客户队列
+	if (NULL != dev_node->get_stream_from_source)
 	{
-		printf("\n######### send rtp data thread exit01 \n");
-		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
-		list_remove(&(stream_hash_table->stream_node_head[hash_value].dev_node_head), dev_node);
-		delete_rtp_data_list(dev_node->stream_data_queue);
-		nolock_queue_destroy(&(dev_node->stream_data_queue));
-		destroy_client_rtp_list(&(dev_node->client_node_head)); //释放rtp客户队列
-		if (NULL != dev_node->get_stream_from_source)
-		{
-			free(dev_node->get_stream_from_source);
-			dev_node->get_stream_from_source = NULL;
-		}
-		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
-
-		free(dev_node);
-		dev_node = NULL;
-
-		//mp4_close(mp4_context, 25);
-		TRACE_ERR("###################send rtp data thread exit 02 [ret = %d]####################\n", ret);
-		return;
+		free(dev_node->get_stream_from_source);
+		dev_node->get_stream_from_source = NULL;
 	}
-#if 0
-	if(2 == p_stream_node->get_stream_thread_start_flag)		//接收数据模块异常退出
-	{
-		printf("\n######### send rtp data thread exit01 \n");
-		pthread_mutex_lock(&(dev_hash_table->hash_node[hash_value].dev_mutex));
-		delete_rtp_data_list(p_stream_node->stream_data_queue);
-		lf_queue_destroy(&(p_stream_node->stream_data_queue));
-		destroy_client_rtp_list(&(p_stream_node->client_node_head));		//释放rtp客户队列
-		if (NULL != p_stream_node->get_stream_from_source)
-		{
-			free(p_stream_node->get_stream_from_source);
-			p_stream_node->get_stream_from_source = NULL;
-		}
-		//pthread_mutex_destroy(&(p_stream_node->client_rtp_mutex));
-		//pthread_cond_destroy(&(p_stream_node->stream_data_empty));
-		pthread_mutex_unlock(&(dev_hash_table->hash_node[hash_value].dev_mutex));
-		sleep(1);
-		free(p_stream_node);
-		p_stream_node = NULL;
 
-		//mp4_close(mp4_context, 25);
-		TRACE_ERR("###################send rtp data thread exit 02 [ret = %d]####################\n", ret);
-		return;
-	}
-	//if((0 == list_size(&(p_stream_node->client_node_head))))
-	else
-	{
-		printf("\n######### send rtp data thread exit02 \n");
-		pthread_mutex_lock(&(dev_hash_table->hash_node[hash_value].dev_mutex));
-		if(2 == p_stream_node->get_stream_thread_start_flag)		//接收视频数据模块已退出
-		{
-			delete_rtp_data_list(p_stream_node->stream_data_queue);
-			lf_queue_destroy(&(p_stream_node->stream_data_queue));
-			destroy_client_rtp_list(&(p_stream_node->client_node_head));		//释放rtp客户队列
-			if (NULL != p_stream_node->get_stream_from_source)
-			{
-				free(p_stream_node->get_stream_from_source);
-				p_stream_node->get_stream_from_source = NULL;
-			}
-			free(p_stream_node);
-			p_stream_node = NULL;
-		}
-		else
-		{
-			printf("\n######### send rtp data thread exit03 \n");
-			list_remove(&(dev_node->streaming_node_head), p_stream_node);
-			if(0 == list_size(&(dev_node->streaming_node_head)))
-			{
-				list_destroy(&(dev_node->streaming_node_head));
-				list_remove(&(dev_hash_table->hash_node[hash_value].dev_node_head), dev_node);
-				free(dev_node);
-				dev_node = NULL;
-			}
-			p_stream_node->rtp_client_node_send_data_thread_flag = 2;
-		}
+	free(dev_node);
+	dev_node = NULL;
+	send_rtp_to_client_task_err_cb(ptsk, 0);
+	TRACE_ERR("###################send rtp data thread exit [ret = %d]####################\n", ret);
 
-		pthread_mutex_unlock(&(dev_hash_table->hash_node[hash_value].dev_mutex));
-		//mp4_close(mp4_context, 25);
-		TRACE_ERR("###################send rtp data thread exit 03 [ret = %d]####################\n", ret);
-		return;
-	}
-#endif
 	return;
 }
 

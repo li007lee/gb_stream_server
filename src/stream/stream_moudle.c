@@ -32,12 +32,6 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 
 	switch (sip_node.cmd_type)
 	{
-		case READY:
-		{
-//			printf("recv READY cmd!\n");
-//			bufferevent_write(write_to_sip_bev, &sip_node, sizeof(SIP_NODE_OBJ));
-		}
-			break;
 		case PLAY:
 		{
 			DEV_NODE_HANDLE dev_node = InsertNodeToDevHashTable(stream_hash_table, &sip_node);

@@ -39,8 +39,7 @@ static HB_S32 find_dev_id_chnl_stream_key(const HB_VOID *el, const HB_VOID *key)
 		return 0;
 	}
 	DEV_NODE_HANDLE dev_node = (DEV_NODE_HANDLE)el;
-	SIP_NODE_HANDLE p_sip_node = (HB_CHAR *)key;
-	//printf("Gateway ip : [%s]\n", (HB_CHAR *)key);
+	SIP_NODE_HANDLE p_sip_node = (SIP_NODE_HANDLE)key;
 	if ((!strcmp(dev_node->dev_id, p_sip_node->dev_id)) && (dev_node->dev_chl_num == p_sip_node->chnl) && (dev_node->stream_type == p_sip_node->stream_type))
 	{
 		printf("Find dev id key: [%s] chnl[%d] stream[%d]\n", p_sip_node->dev_id, p_sip_node->chnl, p_sip_node->stream_type);
@@ -57,16 +56,16 @@ static DEV_NODE_HANDLE create_dev_node(STREAM_HASH_TABLE_HANDLE pHashTable, HB_U
 	DEV_NODE_HANDLE dev_node = (DEV_NODE_HANDLE)calloc(1, sizeof(DEV_NODE_OBJ));
 	dev_node->dev_node_hash_value = mHashValue;
 	strncpy(dev_node->dev_id, p_sip_node->dev_id, sizeof(dev_node->dev_id));
-	strncpy(dev_node->dev_ip, p_sip_node->stream_client_ip, sizeof(dev_node->dev_ip));
-	dev_node->dev_port = p_sip_node->stream_client_port;
+	strncpy(dev_node->dev_ip, p_sip_node->stream_server_ip, sizeof(dev_node->dev_ip));
+	dev_node->dev_port = p_sip_node->stream_server_port;
 	rtp_info_init(&(dev_node->rtp_session.rtp_info_video), 96);
 	dev_node->work_base = pEventBase;
 	dev_node->rtsp_play_flag = 0;
 
 	list_init(&(dev_node->client_node_head));
 
-	event_assign(&dev_node->ev_timer, pEventBase, -1, EV_PERSIST, timeout_cb, (void*)dev_node);
-	event_add(&dev_node->ev_timer, &tv);
+//	event_assign(&dev_node->ev_timer, pEventBase, -1, EV_PERSIST, timeout_cb, (void*)dev_node);
+//	event_add(&dev_node->ev_timer, &tv);
 
 	return dev_node;
 }
@@ -82,7 +81,7 @@ DEV_NODE_HANDLE InsertNodeToDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SI
 
 	pthread_mutex_lock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
 	list_attributes_seeker(&(pHashTable->stream_node_head[mHashValue].dev_node_head), find_dev_id_chnl_stream_key);
-	dev_node = list_seek(&(pHashTable->stream_node_head[mHashValue].dev_node_head), p_sip_node);
+	dev_node = list_seek(&(pHashTable->stream_node_head[mHashValue].dev_node_head), (HB_VOID *)p_sip_node);
 
 	if(NULL == dev_node)
 	{
@@ -102,34 +101,36 @@ DEV_NODE_HANDLE InsertNodeToDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SI
 	return dev_node;
 }
 
-#if 1
+
 DEV_NODE_HANDLE FindDevFromDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE sip_node)
 {
 	TRACE_YELLOW("\nFFFFFFFFFF  FindNodeFromDevHashTable dev_id=[%s], hash_table_len=[%d]\n", sip_node->dev_id, pHashTable->hash_table_len);
 	HB_U32 mHashValue = pHashFunc(sip_node->sip_dev_id) % pHashTable->hash_table_len;
-//	TRACE_YELLOW("mHashValue=%u\n", mHashValue);
 
 	pthread_mutex_lock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
 	list_attributes_seeker(&(pHashTable->stream_node_head[mHashValue].dev_node_head), find_dev_id_chnl_stream_key);
 	DEV_NODE_HANDLE dev_node = list_seek(&(pHashTable->stream_node_head[mHashValue].dev_node_head), sip_node);
-
-	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
-	if(NULL != dev_node)
+	if(NULL == dev_node)
 	{
-		pthread_mutex_unlock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
-
-		return dev_node;
-	}
-	else
-	{
-		//当前申请的设备不存在
 		printf("do not found dev id:[%s]!\n", sip_node->dev_id);
 	}
-
 	pthread_mutex_unlock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
-	return NULL;
+	return dev_node;
 }
-#endif
+
+
+
+HB_VOID DelNodeFromDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, DEV_NODE_HANDLE dev_node)
+{
+	HB_U32 mHashValue = dev_node->dev_node_hash_value;
+	printf("\nDDDDDDDDDD  DelNodeFromDevHashTable dev_id=[%s], hash_table_len=[%d]\n", dev_node->dev_id, pHashTable->hash_table_len);
+
+	pthread_mutex_lock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
+	list_delete(&(pHashTable->stream_node_head[mHashValue].dev_node_head), dev_node);
+	pthread_mutex_unlock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
+	return;
+}
+
 
 //获取哈希表的状态
 HB_VOID GetDevHashState(STREAM_HASH_TABLE_HANDLE pHashTable, HB_CHAR *hash_state_json)

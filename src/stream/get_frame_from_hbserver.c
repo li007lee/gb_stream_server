@@ -487,7 +487,6 @@ HB_VOID recv_cmd_from_hbserver(struct bufferevent *connect_hbserver_bev, HB_VOID
 				ret = nolock_queue_init(&(dev_node->stream_data_queue), 0, sizeof(QUEUE_ARGS_OBJ), 512);
 				if (0 == ret)
 				{
-					//p_stream_node->get_stream_from_source = (HB_CHAR *)malloc(1024*1024);//预先申请1M空间
 					struct timeval tv_read;
 					tv_read.tv_sec = 15;
 					tv_read.tv_usec = 0;
@@ -512,8 +511,7 @@ HB_VOID recv_cmd_from_hbserver(struct bufferevent *connect_hbserver_bev, HB_VOID
 		}
 	}
 
-	HB_S32 hash_value = 0;
-	hash_value = dev_node->dev_node_hash_value;
+	DelNodeFromDevHashTable(stream_hash_table, dev_node);
 	bufferevent_free(connect_hbserver_bev);
 	connect_hbserver_bev = NULL;
 	TRACE_ERR("recv recv :[%s]\n", dev_node->get_stream_from_source);

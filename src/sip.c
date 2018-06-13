@@ -180,15 +180,15 @@ static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_i
 	osip_body_t *body = NULL;
 	osip_message_get_body(*sip, 0, &body);
 
-	int i = 0;
-	char *media_type = NULL;
+	HB_S32 i = 0;
+	HB_CHAR *media_type = NULL;
 	sdp_t* sdp = NULL;
-	char *p_username = NULL;
-	char *p_session = NULL;
-	char *p_version = NULL;
-	char *p_network = NULL;
-	char *p_addrtype = NULL;
-	char *p_address = NULL;
+	HB_CHAR *p_username = NULL;
+	HB_CHAR *p_session = NULL;
+	HB_CHAR *p_version = NULL;
+	HB_CHAR *p_network = NULL;
+	HB_CHAR *p_addrtype = NULL;
+	HB_CHAR *p_address = NULL;
 	HB_S32 count;
 
 //	char body[1024] = { 0 };
@@ -199,7 +199,7 @@ static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_i
 //					"c=IN IP4 192.168.116.19\r\n"
 //					"t=0 0\r\n"
 //					"m=video 19756 RTP/AVP 96 98\r\n"
-////					"a=streamMode:SUB\r\n"
+//					"a=streamMode:SUB\r\n"
 //					"a=recvonly\r\n"
 //					"a=rtpmap:96 PS/90000\r\n"
 //					"a=rtpmap:98 H264/90000\r\n"
@@ -207,7 +207,7 @@ static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_i
 //					"y=0201002353\r\n", sizeof(body));
 //
 //	printf("body :\n[%s]\n", body->body);
-	memset(sip_dev_info, 0, sizeof(SIP_DEV_ARGS_OBJ));
+//	memset(sip_dev_info, 0, sizeof(SIP_DEV_ARGS_OBJ));
 
 	sdp = sdp_parse(body->body);
 	count = sdp_media_count(sdp);
@@ -221,8 +221,11 @@ static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_i
 	strncpy(sip_dev_info->st_sip_dev_id, p_username, sizeof(sip_dev_info->st_sip_dev_id));
 	strncpy(sip_dev_info->st_push_ip, p_address, sizeof(sip_dev_info->st_push_ip));
 
-	const char *y = sdp_y_get(sdp);
-	strncpy(sip_dev_info->st_y, y, sizeof(sip_dev_info->st_y));
+	const HB_CHAR *y = sdp_y_get(sdp);
+	if (NULL != y)
+	{
+		strncpy(sip_dev_info->st_y, y, sizeof(sip_dev_info->st_y));
+	}
 
 	osip_call_id_t *call_id = osip_message_get_call_id(*sip);
 	if (NULL != call_id)
@@ -236,19 +239,21 @@ static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_i
 		media_type = sdp_media_type(sdp, i);
 		if (!strcmp(media_type, "video"))
 		{
-			int push_port = 0;
-			int num = 0;
+			HB_S32 push_port = 0;
+			HB_S32 num = 0;
 			sdp_media_port(sdp, i, &push_port, &num);
-//			printf("port=%d\n", push_port);
 			sip_dev_info->st_push_port = push_port;
 
-			char *video_stream_server_info = NULL;
-			char p_stream_port[8] = { 0 };
+			HB_CHAR *video_stream_server_info = NULL;
+			HB_CHAR p_stream_port[8] = { 0 };
 			video_stream_server_info = sdp_media_attribute_find(sdp, i, "sms");
-			sscanf(video_stream_server_info, "%[^:]:%[^/]/%s", sip_dev_info->st_stram_server_ip, p_stream_port, sip_dev_info->st_dev_id);
-			sip_dev_info->st_stream_server_port = atoi(p_stream_port);
+			if(NULL != video_stream_server_info)
+			{
+				sscanf(video_stream_server_info, "%[^:]:%[^/]/%s", sip_dev_info->st_stram_server_ip, p_stream_port, sip_dev_info->st_dev_id);
+				sip_dev_info->st_stream_server_port = atoi(p_stream_port);
+			}
 
-			char *video_stream_type = NULL;
+			HB_CHAR *video_stream_type = NULL;
 			video_stream_type = sdp_media_attribute_find(sdp, i, "streamMode");
 			if ((NULL != video_stream_type) && (NULL != strstr(video_stream_type, "SUB")))
 			{
@@ -354,51 +359,44 @@ static HB_VOID udp_recv_cb(const int sock, short int which, void *arg)
 //		case REGISTER:
 		case INVITE:
 		{
+			HB_S32 message_len = 0;
+			HB_CHAR *dest = NULL;
+			HB_CHAR response_body[4096] = { 0 }; //回应消息体
+			osip_message_t *response;
+			osip_contact_t *contact = NULL;
+			HB_CHAR tmp[128] = { 0 };
 			if (HB_SUCCESS == parase_invite(&sip, &sip_dev_info))
 			{
 				SIP_NODE_HANDLE sip_node = InsertNodeToSipHashTable(sip_hash_table, &sip_dev_info);
-				printf("sip_node addr = %p\n", sip_node);
-//				sip_node->cmd_type = READY;
-//				sip_node->udp_sock_fd = sock;
-//				sip_node->sip_msg = sip;
-//				bufferevent_write(write_to_stream_bev, sip_node, sizeof(SIP_NODE_OBJ));
+
+				build_response_default(&response, NULL, 200, sip);
+				osip_message_set_content_type(response, "application/sdp");
+				osip_message_get_contact(sip, 0, &contact);
+				snprintf(tmp, sizeof(tmp), "<sip:%s@192.168.118.14:5060>", contact->url->username);
+				osip_message_set_contact(response, tmp);
+				printf("contact : [%s]\n", tmp);
+				snprintf(response_body, sizeof(response_body), "v=0\r\n"
+								"o=%s 0 0 IN IP4 192.168.118.14\r\n"
+								"s=Play\r\n"
+								"c=IN IP4 192.168.118.14\r\n"
+								"t=0 0\r\n"
+								"m=video 0 RTP/AVP 96\r\n"
+								"a=streamMode:%d\r\n"
+								"a=recvonly\r\n"
+								"a=rtpmap:96 PS/90000\r\n"
+								"y=%s\r\n\r\n", sip_node->sip_dev_id, sip_node->stream_type, sip_node->ssrc);
+
+				osip_message_set_body(response, response_body, strlen(response_body));
+				osip_message_to_str(response, &dest, (size_t *) &message_len);
+
+				if (-1 == sendto(sock, (HB_VOID *) dest, strlen(dest), 0, (struct sockaddr *) &server_sin, server_sz))
 				{
-					HB_S32 message_len = 0;
-					HB_CHAR *dest = NULL;
-					HB_CHAR response_body[4096] = { 0 }; //回应消息体
-					osip_message_t *response;
-					osip_contact_t *contact = NULL;
-					HB_CHAR tmp[128] = { 0 };
-
-					build_response_default(&response, NULL, 200, sip);
-					osip_message_set_content_type(response, "application/sdp");
-					osip_message_get_contact(sip, 0, &contact);
-					snprintf(tmp, sizeof(tmp), "<sip:%s@192.168.118.14:5060>", contact->url->username);
-					osip_message_set_contact(response, tmp);
-					printf("contact : [%s]\n", tmp);
-					snprintf(response_body, sizeof(response_body), "v=0\r\n"
-									"o=%s 0 0 IN IP4 192.168.118.14\r\n"
-									"s=Play\r\n"
-									"c=IN IP4 192.168.118.14\r\n"
-									"t=0 0\r\n"
-									"m=video 0 RTP/AVP 96\r\n"
-									"a=streamMode:%d\r\n"
-									"a=recvonly\r\n"
-									"a=rtpmap:96 PS/90000\r\n"
-									"y=%s\r\n\r\n", sip_node->sip_dev_id, sip_node->stream_type, sip_node->ssrc);
-
-					osip_message_set_body(response, response_body, strlen(response_body));
-					osip_message_to_str(response, &dest, (size_t *) &message_len);
-
-					if (-1 == sendto(sock, (HB_VOID *) dest, strlen(dest), 0, (struct sockaddr *) &server_sin, server_sz))
-					{
-						perror("sendto()");
-						event_loopbreak();
-					}
-					osip_message_free(response);
-					response = NULL;
-					TRACE_GREEN("response len=%d, buf=[%s]\n", message_len, dest);
+					perror("sendto()");
+					event_loopbreak();
 				}
+				osip_message_free(response);
+				response = NULL;
+				TRACE_GREEN("response len=%d, buf=[%s]\n", message_len, dest);
 			}
 			break;
 		}

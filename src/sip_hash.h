@@ -23,8 +23,8 @@ typedef struct _tagSIP_NODE
 	HB_CHAR	push_ip[16]; //视频流推送到的ip
 	HB_S32 push_port; //视频流推送到的端口
 	HB_S32 stream_type; //主子码流
-	HB_CHAR	stream_client_ip[16]; //设备所在流媒体ip
-	HB_S32	stream_client_port;	//设备所在流媒体端口
+	HB_CHAR	stream_server_ip[16]; //设备所在流媒体ip
+	HB_S32	stream_server_port;	//设备所在流媒体端口
 	HB_S32 sip_node_hash_value;
 }SIP_NODE_OBJ, *SIP_NODE_HANDLE;
 

@@ -37,8 +37,7 @@ typedef struct _tagQUEUE_ARGS
 
 typedef enum _CMD_TYPE
 {
-	READY=1,
-	PLAY,
+	PLAY=1,
 	STOP
 }CMD_TYPE;
 
