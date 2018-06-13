@@ -176,16 +176,16 @@ HB_VOID send_rtp_to_client_task_err_cb(struct sttask *ptask, long reasons)
 
 HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 {
+
 //	udp_socket = setup_datagram_socket(19750, udp_socket);
 	ps_init(25);
 //	int ps_fd = open("./out_file.PS", O_RDWR|O_CREAT, 0777);
 	//stpool_task_detach(ptsk);
 	struct evbuffer *evbuf = NULL;
-	printf("\n@@@@@@@@@@@  send_rtp_to_client_task TASK start!\n");
-	GET_STREAM_ARGS_HANDLE rtsp_args = (GET_STREAM_ARGS_HANDLE) (ptsk->task_arg);
+	DEV_NODE_HANDLE dev_node = (DEV_NODE_HANDLE) (ptsk->task_arg);
+	printf("\n@@@@@@@@@@@  send_rtp_to_client_task TASK start!dev_addr=%p\n", dev_node);
 	HB_S32 ret = 0;
 	HB_S32 rtp_data_nums = 0;
-	DEV_NODE_HANDLE dev_node = rtsp_args->dev_node;
 	HB_U32 send_interval = 0;
 
 #if 0
@@ -260,7 +260,7 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 		}
 
 #endif
-		printf("\n#############    list size = [%d]\n", list_size(&(dev_node->client_node_head)));
+//		printf("\n#############    list size = [%d]\n", list_size(&(dev_node->client_node_head)));
 		//video_data_node = list_get_at(&(p_stream_node->stream_data_node_head), 0);
 		QUEUE_ARGS_OBJ queue_out;
 		ret = nolock_queue_pop(dev_node->stream_data_queue, &queue_out);
@@ -310,8 +310,8 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 
 			itime += add_time;
 //			itime += 3600;
-			printf("\n***************  v_pts=%lu rtsp_time_stamp =%lu, add_time=%lu   \n", (HB_U64) (cmd_head.v_pts), itime, add_time);
-
+//			printf("\n***************  v_pts=%lu rtsp_time_stamp =%lu, add_time=%lu   \n", (HB_U64) (cmd_head.v_pts), itime, add_time);
+//			continue;
 			cur_node_data_size = 0;
 			if (I_FRAME == cmd_head.data_type) //I帧
 			{
@@ -526,20 +526,27 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 		continue;
 	}
 
-	ERR: if (2 == dev_node->rtp_client_node_send_data_thread_flag) //rtp发送线程先出现异常
+ERR:
+	if (2 == dev_node->rtp_client_node_send_data_thread_flag) //rtp发送线程先出现异常
 	{
+
 		while (dev_node->get_stream_thread_start_flag != 2)
 		{
 			usleep(5000);
 		}
+		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+		list_remove(&(stream_hash_table->stream_node_head[hash_value].dev_node_head), dev_node);
+		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+
 		delete_rtp_data_list(dev_node->stream_data_queue);
 		nolock_queue_destroy(&(dev_node->stream_data_queue));
-		destroy_client_rtp_list(&(dev_node->client_node_head)); //释放rtp客户队列
+		//destroy_client_rtp_list(&(dev_node->client_node_head)); //释放rtp客户队列
 		if (NULL != dev_node->get_stream_from_source)
 		{
 			free(dev_node->get_stream_from_source);
 			dev_node->get_stream_from_source = NULL;
 		}
+
 		free(dev_node);
 		dev_node = NULL;
 		send_rtp_to_client_task_err_cb(ptsk, 0);
@@ -550,6 +557,7 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 	{
 		printf("\n######### send rtp data thread exit01 \n");
 		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+		list_remove(&(stream_hash_table->stream_node_head[hash_value].dev_node_head), dev_node);
 		delete_rtp_data_list(dev_node->stream_data_queue);
 		nolock_queue_destroy(&(dev_node->stream_data_queue));
 		destroy_client_rtp_list(&(dev_node->client_node_head)); //释放rtp客户队列
@@ -558,10 +566,8 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 			free(dev_node->get_stream_from_source);
 			dev_node->get_stream_from_source = NULL;
 		}
-		//pthread_mutex_destroy(&(p_stream_node->client_rtp_mutex));
-		//pthread_cond_destroy(&(p_stream_node->stream_data_empty));
 		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
-		sleep(1);
+
 		free(dev_node);
 		dev_node = NULL;
 

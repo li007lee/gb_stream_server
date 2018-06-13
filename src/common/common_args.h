@@ -35,4 +35,11 @@ typedef struct _tagQUEUE_ARGS
 	HB_CHAR  *data_buf;
 }QUEUE_ARGS_OBJ, *QUEUE_ARGS_HANDLE;
 
+typedef enum _CMD_TYPE
+{
+	READY=1,
+	PLAY,
+	STOP
+}CMD_TYPE;
+
 #endif /* INCLUDE_COMMON_COMMON_ARGS_H_ */

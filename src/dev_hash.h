@@ -99,6 +99,7 @@ typedef struct _tagRTP_CLIENT_TRANSPORT
 
 typedef struct _tagDEV_NODE
 {
+	struct event_base *work_base;
 	struct event ev_timer;//定时器，定时判断当前节点内是否还有用户，若没有，则在定时器回调中释放
 	HB_S32 dev_node_hash_value;
 	HB_CHAR dev_id[128];//设备序列号
@@ -161,24 +162,16 @@ typedef struct _tagRTSP_CMD_ARGS
 	HB_S32    reply_code;
 }RTSP_CMD_ARGS_OBJ, *RTSP_CMD_ARGS_HANDLE;
 
-typedef struct _tagGET_STREAM_ARGS
-{
-	HB_S32 hash_value;
-	struct event_base *work_base;
-	stpool_t *gb_thread_pool;
-	DEV_NODE_HANDLE dev_node;
-}GET_STREAM_ARGS_OBJ, *GET_STREAM_ARGS_HANDLE;
-
 //创建哈希结构
 STREAM_HASH_TABLE_HANDLE DevHashTableCreate(HB_U32 table_len);
 ///initial hash table
 HB_VOID DevHashTableInit(STREAM_HASH_TABLE_HANDLE p_hash_table);
-DEV_NODE_HANDLE InsertNodeToDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_DEV_ARGS_HANDLE p_sip_dev_info);
-GET_STREAM_ARGS_HANDLE FindDevFromDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE sip_node);
+DEV_NODE_HANDLE InsertNodeToDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE p_sip_node);
+//DEV_NODE_HANDLE FindDevFromDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE p_sip_node);
 //获取哈希表的状态
 HB_VOID GetDevHashState(STREAM_HASH_TABLE_HANDLE pHashTable, HB_CHAR *hash_state_json);
 
 
-RTP_CLIENT_TRANSPORT_HANDLE FindClientNode(DEV_NODE_HANDLE dev_node, HB_CHAR call_id);
+RTP_CLIENT_TRANSPORT_HANDLE FindClientNode(DEV_NODE_HANDLE dev_node, HB_CHAR *call_id);
 
 #endif /* SRC_SERVER_HASH_AND_LIST_SIP_DEV_H_ */

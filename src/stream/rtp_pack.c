@@ -305,33 +305,44 @@ HB_S32 pack_ps_rtp_and_add_node(DEV_NODE_HANDLE dev_node, HB_CHAR *data_ptr, HB_
 		//RTP分包，从一个NALU数据中获取一包RTP数据
 		while ((rtp_buf = get_rtp_ps_pack(rtp_info, &rtp_size)) != NULL)
 		{
-			printf("\n##@@@@@@  rtp_size=%d\n", rtp_size);
+//			printf("\n##@@@@@@  rtp_size=%d\n", rtp_size);
 			HB_U8 tcp_buf[4] = { 0 };
 			tcp_buf[0] = '$';
 			tcp_buf[1] = 0;
 			tcp_buf[2] = (HB_U8) ((rtp_size & 0xff00) >> 8);
 			tcp_buf[3] = (HB_U8) ((rtp_size & 0xff));
 
-			RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(dev_node->client_node_head), 0);
-			printf("11111111111111111111\n");
-			sendto(client_node->rtp_fd_video, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(client_node->udp_video.rtp_peer)), \
-								(socklen_t)(sizeof(struct sockaddr_in)));
+//			RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(dev_node->client_node_head), 0);
+//			printf("11111111111111111111\n");
+//			sendto(client_node->rtp_fd_video, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(client_node->udp_video.rtp_peer)), \
+//								(socklen_t)(sizeof(struct sockaddr_in)));
 
-//			HB_S32 i = 0;
-//			HB_S32 client_list_size = 0;
-//			HB_S32 tmp_list_size = 0;
-//			client_list_size = list_size(&(dev_node->client_node_head));
-//
-//			while (client_list_size)
-//			{
-//				RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(dev_node->client_node_head), i);
+			HB_S32 i = 0;
+			HB_S32 client_list_size = 0;
+			HB_S32 tmp_list_size = 0;
+			client_list_size = list_size(&(dev_node->client_node_head));
+
+			while (client_list_size)
+			{
+				RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(dev_node->client_node_head), i);
 //				printf("11111111111111111111\n");
-////				printf("111111111111client ip[%s], port[%d]\n", htonl(client_node->udp_video.rtp_peer.sin_addr.s_addr), htons(client_node->udp_video.rtp_peer.sin_port));
-//				sendto(client_node->rtp_fd_video, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(client_node->udp_video.rtp_peer)), \
-//									(socklen_t)(sizeof(struct sockaddr_in)));
-//				i++;
-//				client_list_size--;
-//			}
+//				printf("111111111111client ip[%s], port[%d]\n", htonl(client_node->udp_video.rtp_peer.sin_addr.s_addr), htons(client_node->udp_video.rtp_peer.sin_port));
+
+				if (client_node->delete_flag != 1)
+				{
+					sendto(client_node->rtp_fd_video, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(client_node->udp_video.rtp_peer)), \
+										(socklen_t)(sizeof(struct sockaddr_in)));
+					++i;
+				}
+				else
+				{
+					list_delete(&(dev_node->client_node_head), client_node);
+					free(client_node);
+					client_node = NULL;
+				}
+
+				client_list_size--;
+			}
 //			send_udp_data(&stUdpInfo, rtp_buf, rtp_size);
 
 			//memcpy(data_ptr + cur_data_size, tcp_buf, 4);

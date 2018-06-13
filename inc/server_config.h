@@ -28,8 +28,8 @@
 
 //以下是线程池的配置
 #define USE_PTHREAD_POOL  1    //是否启用线程池 0-关闭，1-启用
-#define MAX_THREADS    (1100)   //线程数上限
-#define MIN_THREADS     (1000)     //最小启动线程数
+#define MAX_THREADS    (11)   //线程数上限
+#define MIN_THREADS     (10)     //最小启动线程数
 
 
 //以下是日志和调试的配置

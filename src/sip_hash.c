@@ -33,12 +33,15 @@ SIP_NODE_HANDLE InsertNodeToSipHashTable(SIP_HASH_TABLE_HANDLE pHashTable, SIP_D
 {
 	printf("\nIIIIIIIIIIII  InsertNodeToSipHashTable dev_id=[%s], call_id=[%s], hash_table_len=[%d]\n", p_sip_dev_info->st_sip_dev_id, p_sip_dev_info->call_id, pHashTable->hash_table_len);
 	HB_U32 mHashValue = pHashFunc(p_sip_dev_info->call_id) % pHashTable->hash_table_len;
-	printf("mHashValue=%u\n", mHashValue);
 	SIP_NODE_HANDLE sip_node = NULL;
 
 	pthread_mutex_lock(&(pHashTable->sip_hash_node_head[mHashValue].dev_mutex));
-	if (list_size(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head)) < 1)
+	list_attributes_seeker(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), find_call_id);
+	sip_node = list_seek(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), p_sip_dev_info->st_sip_dev_id);
+	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
+	if(NULL == sip_node)
 	{
+		//当前申请的设备不存在（说明是新的设备）
 		//如果当前节点不存在设备，直接插入连表（说明是新设备）
 		sip_node = (SIP_NODE_HANDLE)calloc(1, sizeof(SIP_NODE_OBJ));
 		strncpy(sip_node->sip_dev_id, p_sip_dev_info->st_sip_dev_id, sizeof(sip_node->sip_dev_id));
@@ -50,33 +53,12 @@ SIP_NODE_HANDLE InsertNodeToSipHashTable(SIP_HASH_TABLE_HANDLE pHashTable, SIP_D
 		sip_node->stream_type = p_sip_dev_info->st_stream_type;
 		strncpy(sip_node->push_ip, p_sip_dev_info->st_push_ip, sizeof(sip_node->push_ip));
 		sip_node->push_port = p_sip_dev_info->st_push_port;
+		sip_node->sip_node_hash_value = mHashValue;
+		strncpy(sip_node->ssrc, p_sip_dev_info->st_y, sizeof(sip_node->ssrc));
 		list_append(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), (HB_VOID*)sip_node);
-		pthread_mutex_unlock(&(pHashTable->sip_hash_node_head[mHashValue].dev_mutex));
-	}
-	else
-	{
-		list_attributes_seeker(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), find_call_id);
-		SIP_NODE_HANDLE sip_node = list_seek(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), p_sip_dev_info->st_sip_dev_id);
-		//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
-		if(NULL == sip_node)
-		{
-			//当前申请的设备不存在（说明是新的设备）
-			//如果当前节点不存在设备，直接插入连表（说明是新设备）
-			sip_node = (SIP_NODE_HANDLE)calloc(1, sizeof(SIP_NODE_OBJ));
-			strncpy(sip_node->dev_id, p_sip_dev_info->st_dev_id, sizeof(sip_node->dev_id));
-			strncpy(sip_node->call_id, p_sip_dev_info->call_id, sizeof(sip_node->call_id));
-			strncpy(sip_node->stream_client_ip, p_sip_dev_info->st_stram_server_ip, sizeof(sip_node->stream_client_ip));
-			sip_node->stream_client_port = p_sip_dev_info->st_stream_server_port;
-			sip_node->chnl = p_sip_dev_info->st_dev_chnl;
-			sip_node->stream_type = p_sip_dev_info->st_stream_type;
-			strncpy(sip_node->push_ip, p_sip_dev_info->st_push_ip, sizeof(sip_node->push_ip));
-			sip_node->push_port = p_sip_dev_info->st_push_port;
-			list_append(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), (HB_VOID*)sip_node);
-			pthread_mutex_unlock(&(pHashTable->sip_hash_node_head[mHashValue].dev_mutex));
-			return sip_node;
-		}
-	}
 
+	}
+	pthread_mutex_unlock(&(pHashTable->sip_hash_node_head[mHashValue].dev_mutex));
 	return sip_node;
 }
 
@@ -90,27 +72,19 @@ SIP_NODE_HANDLE FindNodeFromSipHashTable(SIP_HASH_TABLE_HANDLE pHashTable, SIP_D
 	SIP_NODE_HANDLE sip_node = NULL;
 
 	pthread_mutex_lock(&(pHashTable->sip_hash_node_head[mHashValue].dev_mutex));
-	if (list_size(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head)) < 1)
+
+	list_attributes_seeker(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), find_call_id);
+	sip_node = list_seek(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), p_sip_dev_info->call_id);
+
+	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
+	if(NULL != sip_node)
 	{
-		//设备不存在
-		printf("no this call id!\n");
+		printf("FOUND FOUND FOUND FOUND FOUND CALL ID : [%s]\n", sip_node->call_id);
 	}
 	else
 	{
-		list_attributes_seeker(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), find_call_id);
-		sip_node = list_seek(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), p_sip_dev_info->call_id);
-
-		//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
-		if(NULL != sip_node)
-		{
-			printf("FOUND FOUND FOUND FOUND FOUND DEV ID : [%s]\n", p_sip_dev_info->st_sip_dev_id);
-		}
-		else
-		{
-			//当前申请的设备不存在
-			printf("do not found call id:[%s]!\n", p_sip_dev_info->call_id);
-
-		}
+		//当前申请的设备不存在
+		printf("do not found call id:[%s]!\n", p_sip_dev_info->call_id);
 	}
 
 	pthread_mutex_unlock(&(pHashTable->sip_hash_node_head[mHashValue].dev_mutex));
@@ -118,35 +92,16 @@ SIP_NODE_HANDLE FindNodeFromSipHashTable(SIP_HASH_TABLE_HANDLE pHashTable, SIP_D
 }
 
 
-SIP_NODE_HANDLE DelNodeFromSipHashTable(SIP_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE sip_node)
+HB_VOID DelNodeFromSipHashTable(SIP_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE sip_node)
 {
 	printf("\nFFFFFFFFFF  FindNodeFromSipHashTable call_id=[%s], hash_table_len=[%d]\n", sip_node->call_id, pHashTable->hash_table_len);
-	HB_U32 mHashValue = pHashFunc(sip_node->call_id) % pHashTable->hash_table_len;
+	HB_U32 mHashValue = sip_node->sip_node_hash_value;
 	printf("mHashValue=%u\n", mHashValue);
 
-	SIP_NODE_HANDLE sip_node_tmp = NULL;
-
 	pthread_mutex_lock(&(pHashTable->sip_hash_node_head[mHashValue].dev_mutex));
-	if (list_size(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head)) < 1)
-	{
-		//设备不存在
-		printf("no this call id!\n");
-	}
-	else
-	{
-		list_attributes_seeker(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), find_call_id);
-		sip_node_tmp = list_seek(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), sip_node->call_id);
-
-		//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
-		if(NULL != sip_node_tmp)
-		{
-			printf("FOUND FOUND FOUND FOUND FOUND DEV ID : [%s]\n", sip_node_tmp->sip_dev_id);
-			list_delete(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), sip_node_tmp);
-		}
-	}
-
+	list_delete(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), sip_node);
 	pthread_mutex_unlock(&(pHashTable->sip_hash_node_head[mHashValue].dev_mutex));
-	return sip_node;
+	return;
 }
 
 

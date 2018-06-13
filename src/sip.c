@@ -13,170 +13,17 @@
 #include "sip_hash.h"
 #include "dev_hash.h"
 #include "osipparser2/osip_parser.h"
+#include "stream/stream_moudle.h"
 
 SIP_HASH_TABLE_HANDLE sip_hash_table = NULL;
 STREAM_HASH_TABLE_HANDLE stream_hash_table = NULL;
-struct  bufferevent  *sip_stream_msg_pair[2];
+struct bufferevent *sip_stream_msg_pair[2];
+
 
 struct event_base *pEventBase;
 stpool_t *gb_thread_pool;
 
-static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_info)
-{
-	osip_body_t *body = NULL;
-	osip_message_get_body(*sip, 0, &body);
-
-	int i = 0;
-	char *media_type = NULL;
-	sdp_t* sdp = NULL;
-	char *p_username = NULL;
-	char *p_session = NULL;
-	char *p_version = NULL;
-	char *p_network = NULL;
-	char *p_addrtype = NULL;
-	char *p_address = NULL;
-	HB_S32 count;
-
-//	char body[1024] = { 0 };
-//
-//	strncpy(body, "v=0\r\n"
-//					"o=34020000002000000001 0 0 IN IP4 192.168.116.19\r\n"
-//					"s=Play\r\n"
-//					"c=IN IP4 192.168.116.19\r\n"
-//					"t=0 0\r\n"
-//					"m=video 19756 RTP/AVP 96 98\r\n"
-////					"a=streamMode:SUB\r\n"
-//					"a=recvonly\r\n"
-//					"a=rtpmap:96 PS/90000\r\n"
-//					"a=rtpmap:98 H264/90000\r\n"
-//					"a=sms:223.223.199.58:700/5a12caf8\r\n"
-//					"y=0201002353\r\n", sizeof(body));
-//
-//	printf("body :\n[%s]\n", body->body);
-	memset(sip_dev_info, 0, sizeof(SIP_DEV_ARGS_OBJ));
-
-	sdp = sdp_parse(body->body);
-	count = sdp_media_count(sdp);
-	if (count < 0)
-	{
-		sdp_destroy(sdp);
-		return -1;
-	}
-	sdp_origin_get(sdp, &p_username, &p_session, &p_version, &p_network, &p_addrtype, &p_address);
-
-	strncpy(sip_dev_info->st_sip_dev_id, p_username, sizeof(sip_dev_info->st_sip_dev_id));
-	strncpy(sip_dev_info->st_push_ip, p_address, sizeof(sip_dev_info->st_push_ip));
-
-	const char *y = sdp_y_get(sdp);
-	strncpy(sip_dev_info->st_y, y, sizeof(sip_dev_info->st_y));
-
-	osip_call_id_t *call_id = osip_message_get_call_id(*sip);
-	if (NULL != call_id)
-	{
-//		printf("host:[%s]\n", call_id->host);
-		printf("number:[%s]\n", call_id->number);
-		strncpy(sip_dev_info->call_id, call_id->number, sizeof(sip_dev_info->call_id));
-	}
-
-	for (i = 0; i < count; i++)
-	{
-		media_type = sdp_media_type(sdp, i);
-		if (!strcmp(media_type, "video"))
-		{
-			int push_port = 0;
-			int num = 0;
-			sdp_media_port(sdp, i, &push_port, &num);
-			printf("port=%d\n", push_port);
-			sip_dev_info->st_push_port = push_port;
-
-			char *video_stream_server_info = NULL;
-			char p_stream_port[8] = { 0 };
-			video_stream_server_info = sdp_media_attribute_find(sdp, i, "sms");
-			sscanf(video_stream_server_info, "%[^:]:%[^/]/%s", sip_dev_info->st_stram_server_ip, p_stream_port, sip_dev_info->st_dev_id);
-			sip_dev_info->st_stream_server_port = atoi(p_stream_port);
-
-			char *video_stream_type = NULL;
-			video_stream_type = sdp_media_attribute_find(sdp, i, "streamMode");
-			if ((NULL != video_stream_type) && (NULL != strstr(video_stream_type, "SUB")))
-			{
-				//子码流
-				sip_dev_info->st_stream_type = 1;
-			}
-			else
-			{
-				//默认主码流
-				sip_dev_info->st_stream_type = 0;
-			}
-		}
-	}
-
-	printf("dev_number:[%s], dev_id:[%s], stream_type:[%d], stream_ip:[%s], stream_port[%d], push_ip:[%s], push_port:[%d], SSRC:[%s]\n",
-					sip_dev_info->st_sip_dev_id, sip_dev_info->st_dev_id, sip_dev_info->st_stream_type, sip_dev_info->st_stram_server_ip,
-					sip_dev_info->st_stream_server_port, sip_dev_info->st_push_ip, sip_dev_info->st_push_port, sip_dev_info->st_y);
-
-	sdp_destroy(sdp);
-
-	return HB_SUCCESS;
-}
-
-static HB_S32 parase_ack(osip_message_t *sip, SIP_DEV_ARGS_HANDLE sip_dev_info)
-{
-	osip_contact_t *contact = NULL;
-	osip_message_get_contact (sip, 0, &contact);
-	if (NULL != contact)
-	{
-//		printf("sip_dev_id:[%s]\n", contact->url->host);
-//		printf("sip_dev_id1:[%s]\n", contact->displayname);
-		printf("sip_dev_id:[%s]\n", contact->url->username);
-		strncpy(sip_dev_info->st_sip_dev_id, contact->url->username, sizeof(sip_dev_info->st_sip_dev_id));
-	}
-	else
-	{
-		printf("get sip_dev_id failed!\n");
-		return HB_FAILURE;
-	}
-
-	osip_call_id_t *call_id = osip_message_get_call_id(sip);
-	if (NULL != call_id)
-	{
-		printf("number:[%s]\n", call_id->number);
-		strncpy(sip_dev_info->call_id, call_id->number, sizeof(sip_dev_info->call_id));
-	}
-	else
-	{
-		printf("get call_id failed!\n");
-		return HB_FAILURE;
-	}
-
-	printf("sip_dev_id:[%s], call_id:[%s]\n", sip_dev_info->st_sip_dev_id, sip_dev_info->call_id);
-
-	return HB_SUCCESS;
-}
-
-
-static CONTENT_TYPE_E get_content_type(osip_message_t * sip)
-{
-	if (MSG_IS_INVITE(sip))
-	{
-		return INVITE;
-	}
-	else if (MSG_IS_ACK(sip))
-	{
-		return ACK;
-	}
-	else if (MSG_IS_BYE(sip))
-	{
-		return BYE;
-	}
-	if (MSG_IS_REGISTER(sip))
-	{
-		return REGISTER;
-	}
-
-	return NO_TYPE;
-}
-
-HB_S32 build_response_default(osip_message_t ** dest, osip_dialog_t * dialog, int status, osip_message_t * request)
+static HB_S32 build_response_default(osip_message_t ** dest, osip_dialog_t * dialog, int status, osip_message_t * request)
 {
 	osip_generic_param_t *tag;
 	osip_message_t *response;
@@ -327,6 +174,145 @@ HB_S32 build_response_default(osip_message_t ** dest, osip_dialog_t * dialog, in
 	return OSIP_SUCCESS;
 }
 
+
+static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_info)
+{
+	osip_body_t *body = NULL;
+	osip_message_get_body(*sip, 0, &body);
+
+	int i = 0;
+	char *media_type = NULL;
+	sdp_t* sdp = NULL;
+	char *p_username = NULL;
+	char *p_session = NULL;
+	char *p_version = NULL;
+	char *p_network = NULL;
+	char *p_addrtype = NULL;
+	char *p_address = NULL;
+	HB_S32 count;
+
+//	char body[1024] = { 0 };
+//
+//	strncpy(body, "v=0\r\n"
+//					"o=34020000002000000001 0 0 IN IP4 192.168.116.19\r\n"
+//					"s=Play\r\n"
+//					"c=IN IP4 192.168.116.19\r\n"
+//					"t=0 0\r\n"
+//					"m=video 19756 RTP/AVP 96 98\r\n"
+////					"a=streamMode:SUB\r\n"
+//					"a=recvonly\r\n"
+//					"a=rtpmap:96 PS/90000\r\n"
+//					"a=rtpmap:98 H264/90000\r\n"
+//					"a=sms:223.223.199.58:700/5a12caf8\r\n"
+//					"y=0201002353\r\n", sizeof(body));
+//
+//	printf("body :\n[%s]\n", body->body);
+	memset(sip_dev_info, 0, sizeof(SIP_DEV_ARGS_OBJ));
+
+	sdp = sdp_parse(body->body);
+	count = sdp_media_count(sdp);
+	if (count < 0)
+	{
+		sdp_destroy(sdp);
+		return -1;
+	}
+	sdp_origin_get(sdp, &p_username, &p_session, &p_version, &p_network, &p_addrtype, &p_address);
+
+	strncpy(sip_dev_info->st_sip_dev_id, p_username, sizeof(sip_dev_info->st_sip_dev_id));
+	strncpy(sip_dev_info->st_push_ip, p_address, sizeof(sip_dev_info->st_push_ip));
+
+	const char *y = sdp_y_get(sdp);
+	strncpy(sip_dev_info->st_y, y, sizeof(sip_dev_info->st_y));
+
+	osip_call_id_t *call_id = osip_message_get_call_id(*sip);
+	if (NULL != call_id)
+	{
+//		printf("call_id:[%s]\n", call_id->number);
+		strncpy(sip_dev_info->call_id, call_id->number, sizeof(sip_dev_info->call_id));
+	}
+
+	for (i = 0; i < count; i++)
+	{
+		media_type = sdp_media_type(sdp, i);
+		if (!strcmp(media_type, "video"))
+		{
+			int push_port = 0;
+			int num = 0;
+			sdp_media_port(sdp, i, &push_port, &num);
+//			printf("port=%d\n", push_port);
+			sip_dev_info->st_push_port = push_port;
+
+			char *video_stream_server_info = NULL;
+			char p_stream_port[8] = { 0 };
+			video_stream_server_info = sdp_media_attribute_find(sdp, i, "sms");
+			sscanf(video_stream_server_info, "%[^:]:%[^/]/%s", sip_dev_info->st_stram_server_ip, p_stream_port, sip_dev_info->st_dev_id);
+			sip_dev_info->st_stream_server_port = atoi(p_stream_port);
+
+			char *video_stream_type = NULL;
+			video_stream_type = sdp_media_attribute_find(sdp, i, "streamMode");
+			if ((NULL != video_stream_type) && (NULL != strstr(video_stream_type, "SUB")))
+			{
+				//子码流
+				sip_dev_info->st_stream_type = 1;
+			}
+			else
+			{
+				//默认主码流
+				sip_dev_info->st_stream_type = 0;
+			}
+		}
+	}
+
+//	printf("dev_number:[%s], dev_id:[%s], stream_type:[%d], stream_ip:[%s], stream_port[%d], push_ip:[%s], push_port:[%d], SSRC:[%s]\n",
+//					sip_dev_info->st_sip_dev_id, sip_dev_info->st_dev_id, sip_dev_info->st_stream_type, sip_dev_info->st_stram_server_ip,
+//					sip_dev_info->st_stream_server_port, sip_dev_info->st_push_ip, sip_dev_info->st_push_port, sip_dev_info->st_y);
+
+	sdp_destroy(sdp);
+
+	return HB_SUCCESS;
+}
+
+static HB_S32 parase_ack_bye(osip_message_t *sip, SIP_DEV_ARGS_HANDLE sip_dev_info)
+{
+	osip_call_id_t *call_id = osip_message_get_call_id(sip);
+	if (NULL != call_id)
+	{
+		printf("call id:[%s]\n", call_id->number);
+		strncpy(sip_dev_info->call_id, call_id->number, sizeof(sip_dev_info->call_id));
+	}
+	else
+	{
+		printf("get call_id failed!\n");
+		return HB_FAILURE;
+	}
+
+//	printf("sip_dev_id:[%s], call_id:[%s]\n", sip_dev_info->st_sip_dev_id, sip_dev_info->call_id);
+
+	return HB_SUCCESS;
+}
+
+static CONTENT_TYPE_E get_content_type(osip_message_t * sip)
+{
+	if (MSG_IS_INVITE(sip))
+	{
+		return INVITE;
+	}
+	else if (MSG_IS_ACK(sip))
+	{
+		return ACK;
+	}
+	else if (MSG_IS_BYE(sip))
+	{
+		return BYE;
+	}
+	if (MSG_IS_REGISTER(sip))
+	{
+		return REGISTER;
+	}
+
+	return NO_TYPE;
+}
+
 /*
  *	Function: 接收到客户端连接的回调函数
  *
@@ -341,10 +327,9 @@ static HB_VOID udp_recv_cb(const int sock, short int which, void *arg)
 	struct sockaddr_in server_sin;
 	socklen_t server_sz = sizeof(server_sin);
 	HB_CHAR recv_buf[4096] = { 0 };
-	HB_CHAR response_body[4096] = { 0 }; //回应消息体
 	osip_message_t * sip;
-	int message_len = 0;
-	char *dest = NULL;
+
+	struct bufferevent *write_to_stream_bev = sip_stream_msg_pair[0];
 
 	SIP_DEV_ARGS_OBJ sip_dev_info;
 	memset(&sip_dev_info, 0, sizeof(SIP_DEV_ARGS_OBJ));
@@ -354,56 +339,94 @@ static HB_VOID udp_recv_cb(const int sock, short int which, void *arg)
 	{
 		perror("recvfrom()");
 		event_loopbreak();
+		return;
 	}
 
-	printf("FROM TO PARSE: [%s]\n", recv_buf);
+	TRACE_YELLOW("FROM TO PARSE: [%s]\n", recv_buf);
 	osip_message_init(&sip);
 	osip_message_parse(sip, recv_buf, strlen(recv_buf));
 
 	char *message_method = osip_message_get_method(sip);
-	printf("message_method:[%s]\n", message_method);
+//	printf("message_method:[%s]\n", message_method);
 
 	switch (get_content_type(sip))
 	{
-		case REGISTER:
+//		case REGISTER:
 		case INVITE:
 		{
-			printf("write 1234567890\n");
-			bufferevent_write(sip_stream_msg_pair[0], "1234567890", 10);
-//			sleep(2);
-			return ;
 			if (HB_SUCCESS == parase_invite(&sip, &sip_dev_info))
 			{
-				osip_message_t *response;
-				osip_contact_t *contact = NULL;
-				char tmp[128] = { 0 };
-
 				SIP_NODE_HANDLE sip_node = InsertNodeToSipHashTable(sip_hash_table, &sip_dev_info);
+				printf("sip_node addr = %p\n", sip_node);
+//				sip_node->cmd_type = READY;
+//				sip_node->udp_sock_fd = sock;
+//				sip_node->sip_msg = sip;
+//				bufferevent_write(write_to_stream_bev, sip_node, sizeof(SIP_NODE_OBJ));
+				{
+					HB_S32 message_len = 0;
+					HB_CHAR *dest = NULL;
+					HB_CHAR response_body[4096] = { 0 }; //回应消息体
+					osip_message_t *response;
+					osip_contact_t *contact = NULL;
+					HB_CHAR tmp[128] = { 0 };
 
+					build_response_default(&response, NULL, 200, sip);
+					osip_message_set_content_type(response, "application/sdp");
+					osip_message_get_contact(sip, 0, &contact);
+					snprintf(tmp, sizeof(tmp), "<sip:%s@192.168.118.14:5060>", contact->url->username);
+					osip_message_set_contact(response, tmp);
+					printf("contact : [%s]\n", tmp);
+					snprintf(response_body, sizeof(response_body), "v=0\r\n"
+									"o=%s 0 0 IN IP4 192.168.118.14\r\n"
+									"s=Play\r\n"
+									"c=IN IP4 192.168.118.14\r\n"
+									"t=0 0\r\n"
+									"m=video 0 RTP/AVP 96\r\n"
+									"a=streamMode:%d\r\n"
+									"a=recvonly\r\n"
+									"a=rtpmap:96 PS/90000\r\n"
+									"y=%s\r\n\r\n", sip_node->sip_dev_id, sip_node->stream_type, sip_node->ssrc);
 
+					osip_message_set_body(response, response_body, strlen(response_body));
+					osip_message_to_str(response, &dest, (size_t *) &message_len);
 
-//				InsertNodeToDevHashTable(stream_hash_table, &sip_dev_info);
-
+					if (-1 == sendto(sock, (HB_VOID *) dest, strlen(dest), 0, (struct sockaddr *) &server_sin, server_sz))
+					{
+						perror("sendto()");
+						event_loopbreak();
+					}
+					osip_message_free(response);
+					response = NULL;
+					TRACE_GREEN("response len=%d, buf=[%s]\n", message_len, dest);
+				}
+			}
+			break;
+		}
+		case ACK:
+		{
+			if (HB_SUCCESS == parase_ack_bye(sip, &sip_dev_info))
+			{
+				SIP_NODE_HANDLE sip_node = FindNodeFromSipHashTable(sip_hash_table, &sip_dev_info);
+				if (NULL == sip_node)
+				{
+					break;
+				}
+				sip_node->cmd_type = PLAY;
+				bufferevent_write(write_to_stream_bev, sip_node, sizeof(SIP_NODE_OBJ));
+				bufferevent_setcb(sip_stream_msg_pair[1], stream_read_cb, NULL, NULL, NULL);
+				bufferevent_enable(sip_stream_msg_pair[1], EV_READ);
+			}
+		}
+			break;
+		case BYE:
+		{
+			HB_S32 message_len = 0;
+			HB_CHAR *dest = NULL;
+			osip_message_t *response;
+			if (HB_SUCCESS == parase_ack_bye(sip, &sip_dev_info))
+			{
 				build_response_default(&response, NULL, 200, sip);
-				osip_message_set_content_type(response, "application/sdp");
-				osip_message_get_contact(sip, 0, &contact);
-				snprintf(tmp, sizeof(tmp), "<sip:%s@192.168.118.14:5060>", contact->url->username);
-				osip_message_set_contact(response, tmp);
-				snprintf(response_body, sizeof(response_body), "v=0\r\n"
-								"o=%s 0 0 IN IP4 192.168.118.14\r\n"
-								"s=Play\r\n"
-								"c=IN IP4 192.168.118.14\r\n"
-								"t=0 0\r\n"
-								"m=video 0 RTP/AVP 96\r\n"
-								"a=streamMode:%d\r\n"
-								"a=recvonly\r\n"
-								"a=rtpmap:96 PS/90000\r\n"
-								"y=%s\r\n\r\n", sip_dev_info.st_sip_dev_id, sip_dev_info.st_stream_type, sip_dev_info.st_y);
-
-				osip_message_set_body(response, response_body, strlen(response_body));
 				osip_message_to_str(response, &dest, (size_t *) &message_len);
-//				printf("response len=%d, buf=[%s]\n", message_len, dest);
-
 				if (-1 == sendto(sock, (HB_VOID *) dest, strlen(dest), 0, (struct sockaddr *) &server_sin, server_sz))
 				{
 					perror("sendto()");
@@ -411,85 +434,28 @@ static HB_VOID udp_recv_cb(const int sock, short int which, void *arg)
 				}
 				osip_message_free(response);
 				response = NULL;
-			}
-			break;
-		}
-		case ACK:
-		{
-			if (HB_SUCCESS == parase_ack(sip, &sip_dev_info))
-			{
-				SIP_NODE_HANDLE sip_node = FindNodeFromSipHashTable(sip_hash_table, &sip_dev_info);
-				if (NULL == sip_node)
-				{
-					break;
-				}
+				TRACE_GREEN("response bye len=%d, buf=[%s]\n", message_len, dest);
 
-				GET_STREAM_ARGS_HANDLE p_common_args = FindDevFromDevHashTable(stream_hash_table, sip_node);
-				if(NULL == p_common_args)
+				SIP_NODE_HANDLE sip_node = FindNodeFromSipHashTable(sip_hash_table, &sip_dev_info);
+				if (NULL != sip_node)
 				{
-					printf("play stream failed!\n");
+					sip_node->cmd_type = STOP;
+					bufferevent_write(write_to_stream_bev, sip_node, sizeof(SIP_NODE_OBJ));
 					DelNodeFromSipHashTable(sip_hash_table, sip_node);
 					free(sip_node);
 					sip_node = NULL;
-					free(p_common_args);
-					p_common_args = NULL;
-				}
-				else
-				{
-
-					HB_S32 hash_value = p_common_args->dev_node->dev_node_hash_value;
-					printf("DEV_HASH=%d\n", hash_value);
-					pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
-					//查找客户节点
-					RTP_CLIENT_TRANSPORT_HANDLE client_node = FindClientNode(p_common_args->dev_node, sip_node->call_id);
-					if (NULL == client_node)
-					{
-						client_node = (RTP_CLIENT_TRANSPORT_HANDLE)calloc(1, sizeof(RTP_CLIENT_TRANSPORT_OBJ));
-						strncpy(client_node->call_id, sip_node->call_id, sizeof(client_node->call_id));
-						client_node->udp_video.cli_ports.RTP = sip_node->push_port;
-						client_node->rtp_fd_video=socket(AF_INET,SOCK_DGRAM,0);
-						if(client_node->rtp_fd_video<0)
-						{
-							fprintf(stderr,"Socket Error:%s\n",strerror(errno));
-						}
-
-						bzero(&(client_node->udp_video.rtp_peer), sizeof(struct sockaddr_in));
-						client_node->udp_video.rtp_peer.sin_family=AF_INET;
-//						client_node->udp_video.rtp_peer.sin_addr.s_addr=htonl(sip_node->push_ip);
-						client_node->udp_video.rtp_peer.sin_port=htons(client_node->udp_video.cli_ports.RTP);
-						inet_aton(sip_node->push_ip, &(client_node->udp_video.rtp_peer.sin_addr));
-
-						list_append(&(p_common_args->dev_node->client_node_head), client_node);
-					}
-
-//					printf("client ip[%s], port[%d]\n", htonl(client_node->udp_video.rtp_peer.sin_addr.s_addr), htons(client_node->udp_video.rtp_peer.sin_port));
-//					sleep(5);
-					play_rtsp_video_from_hbserver(p_common_args);
-					pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
-					printf("succeed!\n");
+					bufferevent_setcb(sip_stream_msg_pair[1], stream_read_cb, NULL, NULL, NULL);
+					bufferevent_enable(sip_stream_msg_pair[1], EV_READ);
 				}
 			}
 		}
-			break;
-		case BYE:
 			break;
 		default:
 			break;
 	}
-
 	osip_message_free(sip);
 	sip = NULL;
-
 	return;
-}
-
-HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
-{
-	HB_CHAR buf[1024] = {0};
-	bufferevent_read(buf_bev, buf, 1024);
-
-	printf("recv recv-------------------[%s]\n", buf);
-
 }
 
 #if 0
@@ -503,6 +469,7 @@ static void timeout_cb(evutil_socket_t fd, short events, void *arg)
 	event_add(ev_time, &tv);
 }
 #endif
+
 /*
  * function : 启动sip模块
  *
@@ -512,7 +479,7 @@ static void timeout_cb(evutil_socket_t fd, short events, void *arg)
  */
 HB_S32 start_sip_moudle()
 {
-	HB_S32 sock = -1;
+	HB_S32 udp_listener_sock = -1;
 	struct sockaddr_in stListenAddr;
 
 	parser_init();
@@ -524,7 +491,6 @@ HB_S32 start_sip_moudle()
 		return HB_FAILURE;
 	}
 	SipHashTableInit(sip_hash_table);
-
 
 	stream_hash_table = DevHashTableCreate(1000); //创建哈希表
 	if (NULL == stream_hash_table)
@@ -542,8 +508,8 @@ HB_S32 start_sip_moudle()
 	}
 
 #if USE_PTHREAD_POOL
-	HB_S64 eCAPs = eCAP_F_DYNAMIC|eCAP_F_SUSPEND|eCAP_F_THROTTLE|eCAP_F_ROUTINE|
-					  eCAP_F_CUSTOM_TASK|eCAP_F_DISABLEQ|eCAP_F_PRIORITY|eCAP_F_WAIT_ALL;
+	HB_S64 eCAPs = eCAP_F_DYNAMIC | eCAP_F_SUSPEND | eCAP_F_THROTTLE | eCAP_F_ROUTINE | eCAP_F_CUSTOM_TASK | eCAP_F_DISABLEQ | eCAP_F_PRIORITY
+					| eCAP_F_WAIT_ALL;
 	//创建线程池
 	//"rtsp_server_pool" -线程池的名字
 	//eCAPs    			  -必要能力集
@@ -560,7 +526,7 @@ HB_S32 start_sip_moudle()
 	}
 #endif
 
-	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	udp_listener_sock = socket(AF_INET, SOCK_DGRAM, 0);
 	bzero(&stListenAddr, sizeof(stListenAddr));
 	stListenAddr.sin_family = AF_INET;
 	stListenAddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -578,28 +544,31 @@ HB_S32 start_sip_moudle()
 		return HB_FAILURE;
 	}
 
-	if (bind(sock, (struct sockaddr *) &stListenAddr, sizeof(stListenAddr)))
+	if (bind(udp_listener_sock, (struct sockaddr *) &stListenAddr, sizeof(stListenAddr)))
 	{
 		perror("bind()");
 		return HB_FAILURE;
 	}
 
 #if 0
-	struct timeval tv = {60, 0};
+	struct timeval tv =
+	{	60, 0};
 	struct event ev_time;
 	event_assign(&ev_time, pEventBase, -1, EV_PERSIST, timeout_cb, (void*) &ev_time);
 	event_add(&ev_time, &tv);
 #endif
 	struct event udp_event;
-	event_assign(&udp_event, pEventBase, sock, EV_READ | EV_PERSIST, udp_recv_cb, (void*) &udp_event);
+	event_assign(&udp_event, pEventBase, udp_listener_sock, EV_READ | EV_PERSIST, udp_recv_cb, (void*) &udp_event);
 	event_add(&udp_event, 0);
 
-	printf("bufferevent_pair_new ret = %d\n", bufferevent_pair_new(pEventBase,  BEV_OPT_CLOSE_ON_FREE, sip_stream_msg_pair));
+	bufferevent_pair_new(pEventBase, BEV_OPT_CLOSE_ON_FREE, sip_stream_msg_pair);
 	bufferevent_setcb(sip_stream_msg_pair[1], stream_read_cb, NULL, NULL, NULL);
-	bufferevent_enable(sip_stream_msg_pair[1], EV_READ | EV_PERSIST);
+	bufferevent_enable(sip_stream_msg_pair[1], EV_READ);
+//	bufferevent_setcb(sip_stream_msg_pair[0], sip_read_cb, NULL, NULL, NULL);
+//	bufferevent_enable(sip_stream_msg_pair[0], EV_READ | EV_PERSIST);
 
-	event_base_dispatch(pEventBase);
-	event_base_free(pEventBase);
+event_base_dispatch(pEventBase);
+event_base_free(pEventBase);
 
-	return HB_SUCCESS;
+return HB_SUCCESS;
 }

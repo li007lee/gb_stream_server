@@ -9,9 +9,9 @@
 #include "common/common_args.h"
 #include "common/hash_table.h"
 #include "dev_hash.h"
+#include "sip_hash.h"
 
 extern struct event_base *pEventBase;
-extern stpool_t *gb_thread_pool;
 extern STREAM_HASH_TABLE_HANDLE stream_hash_table;
 
 struct timeval tv = {USER_TIMEOUT, 0};
@@ -29,26 +29,6 @@ static void timeout_cb(evutil_socket_t fd, short events, void *arg)
 	printf("curtain time : %ld.\n", time(NULL));
 }
 
-
-//根据sip的设备id查找设备
-static HB_S32 find_dev_id_key(const HB_VOID *el, const HB_VOID *key)
-{
-	if ((el == NULL) || (key == NULL))
-	{
-		TRACE_ERR("called with NULL pointer: el=%p, key=%p", el, key);
-		return 0;
-	}
-	DEV_NODE_HANDLE dev_node = (DEV_NODE_HANDLE)el;
-	HB_CHAR *p_dev_id = (HB_CHAR *)key;
-	//printf("Gateway ip : [%s]\n", (HB_CHAR *)key);
-	if (!strcmp(dev_node->dev_id, p_dev_id))
-	{
-		printf("Find dev id key: [%s]\n", p_dev_id);
-		return 1;
-	}
-
-	return 0;
-}
 
 //根据sip的设备id,通道，主子码流查找设备
 static HB_S32 find_dev_id_chnl_stream_key(const HB_VOID *el, const HB_VOID *key)
@@ -72,18 +52,16 @@ static HB_S32 find_dev_id_chnl_stream_key(const HB_VOID *el, const HB_VOID *key)
 
 
 //创建设备节点， 返回创建好的新节点
-static DEV_NODE_HANDLE create_dev_node(STREAM_HASH_TABLE_HANDLE pHashTable, HB_U32 mHashValue, SIP_DEV_ARGS_HANDLE p_sip_dev_info)
+static DEV_NODE_HANDLE create_dev_node(STREAM_HASH_TABLE_HANDLE pHashTable, HB_U32 mHashValue, SIP_NODE_HANDLE p_sip_node)
 {
 	DEV_NODE_HANDLE dev_node = (DEV_NODE_HANDLE)calloc(1, sizeof(DEV_NODE_OBJ));
 	dev_node->dev_node_hash_value = mHashValue;
-	strncpy(dev_node->dev_id, p_sip_dev_info->st_dev_id, sizeof(dev_node->dev_id));
-	strncpy(dev_node->dev_ip, p_sip_dev_info->st_stram_server_ip, sizeof(dev_node->dev_ip));
-	dev_node->dev_port = p_sip_dev_info->st_stream_server_port;
+	strncpy(dev_node->dev_id, p_sip_node->dev_id, sizeof(dev_node->dev_id));
+	strncpy(dev_node->dev_ip, p_sip_node->stream_client_ip, sizeof(dev_node->dev_ip));
+	dev_node->dev_port = p_sip_node->stream_client_port;
 	rtp_info_init(&(dev_node->rtp_session.rtp_info_video), 96);
-
-//	strncpy(dev_node->dev_id, "12345", sizeof(dev_node->dev_id));
-//	strncpy(dev_node->dev_ip, "192.168.118.2", sizeof(dev_node->dev_ip));
-//	dev_node->dev_port = 600;
+	dev_node->work_base = pEventBase;
+	dev_node->rtsp_play_flag = 0;
 
 	list_init(&(dev_node->client_node_head));
 
@@ -95,88 +73,63 @@ static DEV_NODE_HANDLE create_dev_node(STREAM_HASH_TABLE_HANDLE pHashTable, HB_U
 
 
 
-DEV_NODE_HANDLE InsertNodeToDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_DEV_ARGS_HANDLE p_sip_dev_info)
+DEV_NODE_HANDLE InsertNodeToDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE p_sip_node)
 {
-	TRACE_YELLOW("\nIIIIIIIIIIII  InsertNodeToDevHashTable dev_id=[%s], call_id=[%s], hash_table_len=[%d]\n", p_sip_dev_info->st_sip_dev_id, p_sip_dev_info->call_id, pHashTable->hash_table_len);
-	HB_U32 mHashValue = pHashFunc(p_sip_dev_info->st_sip_dev_id) % pHashTable->hash_table_len;
+	TRACE_YELLOW("\nIIIIIIIIIIII  InsertNodeToDevHashTable dev_id=[%s], call_id=[%s], hash_table_len=[%d]\n", p_sip_node->sip_dev_id, p_sip_node->call_id, pHashTable->hash_table_len);
+	HB_U32 mHashValue = pHashFunc(p_sip_node->sip_dev_id) % pHashTable->hash_table_len;
 	TRACE_YELLOW("mHashValue=%u\n", mHashValue);
 	DEV_NODE_HANDLE dev_node = NULL;
 
 	pthread_mutex_lock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
-	if (list_size(&(pHashTable->stream_node_head[mHashValue].dev_node_head)) < 1)
+	list_attributes_seeker(&(pHashTable->stream_node_head[mHashValue].dev_node_head), find_dev_id_chnl_stream_key);
+	dev_node = list_seek(&(pHashTable->stream_node_head[mHashValue].dev_node_head), p_sip_node);
+
+	if(NULL == dev_node)
 	{
+		//当前申请的设备不存在（说明是新的设备）
 		//如果当前节点不存在设备，直接插入连表（说明是新设备）
 		//创建设备节点
-		DEV_NODE_HANDLE dev_node = create_dev_node(pHashTable, mHashValue, p_sip_dev_info);
+		dev_node = create_dev_node(pHashTable, mHashValue, p_sip_node);
 		list_append(&(pHashTable->stream_node_head[mHashValue].dev_node_head), (HB_VOID*)dev_node);
+		printf("$$$$$$$$$$$$$$$$$$$$$$$don't have dev_node");
 	}
 	else
 	{
-		list_attributes_seeker(&(pHashTable->stream_node_head[mHashValue].dev_node_head), find_dev_id_key);
-		DEV_NODE_HANDLE dev_node = list_seek(&(pHashTable->stream_node_head[mHashValue].dev_node_head), p_sip_dev_info->st_dev_id);
-
-		//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
-		if(NULL == dev_node)
-		{
-			//当前申请的设备不存在（说明是新的设备）
-			//如果当前节点不存在设备，直接插入连表（说明是新设备）
-			//创建设备节点
-			DEV_NODE_HANDLE dev_node = create_dev_node(pHashTable, mHashValue, p_sip_dev_info);
-			list_append(&(pHashTable->stream_node_head[mHashValue].dev_node_head), (HB_VOID*)dev_node);
-		}
+		printf("$$$$$$$$$$$$$$$$$$$$$$$have dev_node");
 	}
 
 	pthread_mutex_unlock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
 	return dev_node;
 }
 
-
-GET_STREAM_ARGS_HANDLE FindDevFromDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE sip_node)
+#if 1
+DEV_NODE_HANDLE FindDevFromDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE sip_node)
 {
 	TRACE_YELLOW("\nFFFFFFFFFF  FindNodeFromDevHashTable dev_id=[%s], hash_table_len=[%d]\n", sip_node->dev_id, pHashTable->hash_table_len);
 	HB_U32 mHashValue = pHashFunc(sip_node->sip_dev_id) % pHashTable->hash_table_len;
-	TRACE_YELLOW("mHashValue=%u\n", mHashValue);
-
-	GET_STREAM_ARGS_HANDLE p_common_args = (GET_STREAM_ARGS_HANDLE)calloc(1, sizeof(GET_STREAM_ARGS_OBJ));
+//	TRACE_YELLOW("mHashValue=%u\n", mHashValue);
 
 	pthread_mutex_lock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
-	if (list_size(&(pHashTable->stream_node_head[mHashValue].dev_node_head)) < 1)
+	list_attributes_seeker(&(pHashTable->stream_node_head[mHashValue].dev_node_head), find_dev_id_chnl_stream_key);
+	DEV_NODE_HANDLE dev_node = list_seek(&(pHashTable->stream_node_head[mHashValue].dev_node_head), sip_node);
+
+	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
+	if(NULL != dev_node)
 	{
-		//设备不存在
-		printf("no device!\n");
-//		pthread_mutex_unlock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
-//		return NULL;
+		pthread_mutex_unlock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
+
+		return dev_node;
 	}
 	else
 	{
-		list_attributes_seeker(&(pHashTable->stream_node_head[mHashValue].dev_node_head), find_dev_id_chnl_stream_key);
-		DEV_NODE_HANDLE dev_node = list_seek(&(pHashTable->stream_node_head[mHashValue].dev_node_head), sip_node);
-
-		//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
-		if(NULL != dev_node)
-		{
-
-			pthread_mutex_unlock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
-
-			p_common_args->dev_node = dev_node;
-			p_common_args->work_base = pEventBase;
-			p_common_args->gb_thread_pool = gb_thread_pool;
-
-			return p_common_args;
-		}
-		else
-		{
-			//当前申请的设备不存在
-			printf("do not found dev id:[%s]!\n", sip_node->dev_id);
-//			pthread_mutex_unlock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
-//			return NULL;
-		}
+		//当前申请的设备不存在
+		printf("do not found dev id:[%s]!\n", sip_node->dev_id);
 	}
 
 	pthread_mutex_unlock(&(pHashTable->stream_node_head[mHashValue].dev_mutex));
 	return NULL;
 }
-
+#endif
 
 //获取哈希表的状态
 HB_VOID GetDevHashState(STREAM_HASH_TABLE_HANDLE pHashTable, HB_CHAR *hash_state_json)
@@ -278,17 +231,6 @@ STREAM_HASH_TABLE_HANDLE DevHashTableCreate(HB_U32 table_len)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 //根据call_id查找客户节点
 static HB_S32 find_client_node_key(const HB_VOID *el, const HB_VOID *key)
 {
@@ -299,7 +241,7 @@ static HB_S32 find_client_node_key(const HB_VOID *el, const HB_VOID *key)
 	}
 	RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE)el;
 	HB_CHAR *p_call_id = (HB_CHAR *)key;
-	//printf("Gateway ip : [%s]\n", (HB_CHAR *)key);
+//	printf("p_call_id : [%s]\n", p_call_id);
 	if (!strcmp(client_node->call_id, p_call_id))
 	{
 		printf("Find client call id key: [%s]\n", p_call_id);
@@ -310,17 +252,17 @@ static HB_S32 find_client_node_key(const HB_VOID *el, const HB_VOID *key)
 }
 
 
-RTP_CLIENT_TRANSPORT_HANDLE FindClientNode(DEV_NODE_HANDLE dev_node, HB_CHAR call_id)
+RTP_CLIENT_TRANSPORT_HANDLE FindClientNode(DEV_NODE_HANDLE dev_node, HB_CHAR *call_id)
 {
 	list_attributes_seeker(&(dev_node->client_node_head), find_client_node_key);
 	RTP_CLIENT_TRANSPORT_HANDLE client_node = list_seek(&(dev_node->client_node_head), call_id);
 
 	if(NULL != client_node)
 	{
-		printf("");
 		return client_node;
 	}
 
+	printf("not found client!\n");
 	return NULL;
 }
 
