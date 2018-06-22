@@ -20,7 +20,7 @@ all:	$(ALL)
 	$(CPLUSPLUS_COMPILER) -c $(CPLUSPLUS_FLAGS) $<
 
 $(EXEC): $(OBJS) 
-	$(C_COMPILER) $(C_FLAGS) -o $(EXEC) $(OBJS) $(LIBS)  -lcommon -lstream -lstpool -lmsglog -levent -levent_pthreads -losipparser2 -losip2 -lpthread -lm
+	$(C_COMPILER) $(C_FLAGS) -o $(EXEC) $(OBJS) $(LIBS)  -lcommon -lstream -lcjson -lstpool -lmsglog -levent -levent_pthreads -losipparser2 -losip2 -lpthread -lm
 	$(STRIP) $(EXEC)
 	mv $(EXEC) $(PROJECT_DIR)/bin/$(EXEC)
 	

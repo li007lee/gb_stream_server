@@ -97,7 +97,17 @@ typedef struct _tagRTP_CLIENT_TRANSPORT
 	udp_info_t udp_audio; //音频的UDP信息
 }RTP_CLIENT_TRANSPORT_OBJ, *RTP_CLIENT_TRANSPORT_HANDLE;
 
-typedef struct _tagDEV_NODE
+typedef struct _tagSDP_INFO
+{
+	HB_S32			      get_sdp_state;		 //获取sdp状态，0-还未获取，1-获取中，2-获取完毕
+	HB_CHAR			   m_video[64];			 //sdp中视频m字段信息，例：m=video 0 RTP/AVP 96
+	HB_CHAR				m_audio[64];			 //sdp中音频m字段信息，例：m=audio 0 RTP/AVP 14
+	HB_CHAR				a_rtpmap_video[64];
+	HB_CHAR				a_rtpmap_audio[64];
+	HB_CHAR				a_fmtp_video[512];
+}SDP_INFO_OBJ, *SDP_INFO_HANDLE;
+
+typedef struct _tagSTREAM_NODE
 {
 	struct event_base *work_base;
 	struct event ev_timer;//定时器，定时判断当前节点内是否还有用户，若没有，则在定时器回调中释放
@@ -111,11 +121,12 @@ typedef struct _tagDEV_NODE
 	HB_U32 rtsp_play_flag;                   //rtsp视频播放关闭标识，0-还未开启 1-已经开启 2-已经关闭
 	HB_U32 rtsp_audio_enable;  //音频使能
 	HB_U32 send_socket_buffer_size; //网络发送缓冲区的大小
-//	HB_S32 connect_box_sock_fd; //连接前端盒子的套接字
+	HB_S32 connect_box_sock_fd; //连接前端盒子的套接字
 	HB_U32 dev_chl_num; //设备通道号
 	HB_U32 stream_type; //码流类型 0-主码流 1-子码流
 
 	RTP_session_t rtp_session;       //RTP会话结构体
+	SDP_INFO_OBJ sdp_info;
 
 	list_t client_node_head;
 	HB_U32 get_stream_thread_start_flag;//从汉邦服务器或盒子获取流的模块启动标识 0-未启动，1-已启动，2-启动后，出现异常退出
@@ -125,20 +136,20 @@ typedef struct _tagDEV_NODE
 
 	lf_queue stream_data_queue;
 
-}DEV_NODE_OBJ, *DEV_NODE_HANDLE;
+}STREAM_NODE_OBJ, *STREAM_NODE_HANDLE;
 
 //每个哈希节点中的内容
-typedef struct  _tagDEV_HEAD_OF_HASH_TABLE
+typedef struct  _tagSTREAM_HEAD_OF_HASH_TABLE
 {
-	pthread_mutex_t dev_mutex;
-	list_t dev_node_head;
-}DEV_HEAD_OF_HASH_TABLE_OBJ, *DEV_HEAD_OF_HASH_TABLE_HANDLE;
+	pthread_mutex_t stream_mutex;
+	list_t stream_node_head;
+}STREAM_HEAD_OF_HASH_TABLE_OBJ, *STREAM_HEAD_OF_HASH_TABLE_HANDLE;
 
 //哈希表
 typedef struct _tagSTREAM_HASH_TABLE
 {
 	HB_U32 hash_table_len; //hash节点长度
-	DEV_HEAD_OF_HASH_TABLE_HANDLE stream_node_head;
+	STREAM_HEAD_OF_HASH_TABLE_HANDLE stream_node_head;
 }STREAM_HASH_TABLE_OBJ, *STREAM_HASH_TABLE_HANDLE;
 
 
@@ -155,7 +166,7 @@ typedef struct _tagRTSP_CMD_ARGS
 {
 	HB_S32 hash_value;
 	stpool_t *rtsp_pool;
-	DEV_NODE_HANDLE dev_node;
+	STREAM_NODE_HANDLE dev_node;
 	RTP_CLIENT_TRANSPORT_HANDLE client_node;
 	HB_CHAR reply_msg[2048];
 	HB_S32    reply_msg_len;
@@ -164,10 +175,10 @@ typedef struct _tagRTSP_CMD_ARGS
 
 STREAM_HASH_TABLE_HANDLE DevHashTableCreate(HB_U32 table_len);
 HB_VOID DevHashTableInit(STREAM_HASH_TABLE_HANDLE p_hash_table);
-DEV_NODE_HANDLE InsertNodeToDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE p_sip_node);
-DEV_NODE_HANDLE FindDevFromDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE sip_node);
-HB_VOID DelNodeFromDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, DEV_NODE_HANDLE dev_node);
-RTP_CLIENT_TRANSPORT_HANDLE FindClientNode(DEV_NODE_HANDLE dev_node, HB_CHAR *call_id);
+STREAM_NODE_HANDLE InsertNodeToDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE p_sip_node);
+STREAM_NODE_HANDLE FindDevFromDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE sip_node);
+HB_VOID DelNodeFromDevHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, STREAM_NODE_HANDLE dev_node);
+RTP_CLIENT_TRANSPORT_HANDLE FindClientNode(STREAM_NODE_HANDLE dev_node, HB_CHAR *call_id);
 HB_VOID GetDevHashState(STREAM_HASH_TABLE_HANDLE pHashTable, HB_CHAR *hash_state_json);
 
 

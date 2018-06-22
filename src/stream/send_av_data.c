@@ -181,7 +181,7 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 	PS_FRAME_INFO_OBJ ps_info;
 //	ps_init(25);
 	struct evbuffer *evbuf = NULL;
-	DEV_NODE_HANDLE dev_node = (DEV_NODE_HANDLE) (ptsk->task_arg);
+	STREAM_NODE_HANDLE dev_node = (STREAM_NODE_HANDLE) (ptsk->task_arg);
 	printf("\n@@@@@@@@@@@  send_rtp_to_client_task TASK start!dev_addr=%p\n", dev_node);
 	HB_S32 ret = 0;
 	HB_S32 rtp_data_nums = 0;
@@ -334,19 +334,19 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 				continue;
 			}
 
-			if (cur_node_data_size <= 0)
-			{
-				printf("\n#########   cur_node_data_size=[%d] \n", cur_node_data_size);
-#if JE_MELLOC_FUCTION
-				je_free(video_data_node);
-#else
-				free(video_data_node);
-#endif
-				video_data_node = NULL;
-				ret = -103;
-				dev_node->rtp_client_node_send_data_thread_flag = 2;
-				break;
-			}
+//			if (cur_node_data_size <= 0)
+//			{
+//				printf("\n#########   cur_node_data_size=[%d] \n", cur_node_data_size);
+//#if JE_MELLOC_FUCTION
+//				je_free(video_data_node);
+//#else
+//				free(video_data_node);
+//#endif
+//				video_data_node = NULL;
+//				ret = -103;
+//				dev_node->rtp_client_node_send_data_thread_flag = 2;
+//				break;
+//			}
 			//printf("\n***************pack_video_rtp_and_add_node() pack_video_rtp_and_add_node = [%d]  \n", pack_video_rtp_and_add_node);
 			//pthread_mutex_lock(&(p_stream_node->client_rtp_mutex));
 			//list_delete(&(p_stream_node->stream_data_node_head), video_data_node);

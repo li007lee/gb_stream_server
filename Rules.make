@@ -1,7 +1,7 @@
 PROJECT_DIR :=/root/eclipse-workspace/gb28181_stream_server
 DATE = $(shell date '+%Y_%m_%d')
 
-PLATFORM?=X86PC
+PLATFORM?=X64
 BUILD?=RELEASE
 
 CROSS_COMPILE :=

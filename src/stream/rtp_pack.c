@@ -9,6 +9,8 @@
 
 #include "../dev_hash.h"
 
+extern STREAM_HASH_TABLE_HANDLE stream_hash_table;
+
 ////////////////////////////////////////////////////////////////////////////////
 // 函数名：rtsp_random
 // 描  述：获取长整形的随机数
@@ -254,24 +256,10 @@ static HB_S32 set_rtp_pack1(rtp_info_t *rtp_info, HB_CHAR *ps_data_buf,
 
 
 //返回当前节点中数据长度
-HB_S32 pack_ps_rtp_and_add_node(DEV_NODE_HANDLE dev_node, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
+HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE dev_node, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
 {
-
-//	char *server_ip = "192.168.118.14";
-//	struct sockaddr_in server_addr;
-//	bzero(&server_addr, sizeof(server_addr));   // 清空内容
-//	server_addr.sin_family = AF_INET;     // ipv4
-//	server_addr.sin_port = htons(19750); // 端口转换
-//	inet_pton(AF_INET, server_ip, &server_addr.sin_addr);
-
-#if 0
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_addr.s_addr = inet_addr("192.168.118.32");
-	server_addr.sin_port = htons(19750);
-	//memset(server_addr.sin_zero, 0, 8);
-#endif
-	int addr_len = sizeof(struct sockaddr_in);
-
+	HB_S32 addr_len = sizeof(struct sockaddr_in);
+	HB_S32 hash_value = dev_node->dev_node_hash_value;
 	HB_U32 left_bytes = 0;
 	HB_U32 cur_data_size = 0;
 	HB_U32 end_of_frame = 0;
@@ -287,82 +275,75 @@ HB_S32 pack_ps_rtp_and_add_node(DEV_NODE_HANDLE dev_node, HB_CHAR *data_ptr, HB_
 	rtp_info = &(dev_node->rtp_session.rtp_info_video);
 	start_pos = data_ptr + rtp_data_buf_pre_size;
 	left_bytes = data_size;
+	RTP_CLIENT_TRANSPORT_HANDLE client_node = NULL;
+	HB_S32 i = 0;
+	HB_S32 client_list_size = 0;
+	HB_S32 tmp_list_size = 0;
 
 	while (left_bytes > 3)
 	{
-		if (1 == frame_type) //I帧
-		{
-			set_rtp_pack1(rtp_info, start_pos, left_bytes, time_stamp, 1);
-		}
-		else //B、P帧
-		{
-			//printf("\n##@@@@@@  time_stamp=%d\n", (HB_U32)time_stamp);
-			//rtp_info->rtp_hdr.timestamp = (HB_U32)time_stamp;
-			//将NAL的信息填充进rtp信息的结构体中
-			set_rtp_pack1(rtp_info, start_pos, left_bytes, time_stamp, 1);
-		}
+		//将NAL的信息填充进rtp信息的结构体中
+		set_rtp_pack1(rtp_info, start_pos, left_bytes, time_stamp, 1);
 
+		client_list_size = list_size(&(dev_node->client_node_head));
 		//RTP分包，从一个NALU数据中获取一包RTP数据
 		while ((rtp_buf = get_rtp_ps_pack(rtp_info, &rtp_size)) != NULL)
 		{
 //			printf("\n##@@@@@@  rtp_size=%d\n", rtp_size);
-			HB_U8 tcp_buf[4] = { 0 };
-			tcp_buf[0] = '$';
-			tcp_buf[1] = 0;
-			tcp_buf[2] = (HB_U8) ((rtp_size & 0xff00) >> 8);
-			tcp_buf[3] = (HB_U8) ((rtp_size & 0xff));
+//			HB_U8 tcp_buf[4] = { 0 };
+//			tcp_buf[0] = '$';
+//			tcp_buf[1] = 0;
+//			tcp_buf[2] = (HB_U8) ((rtp_size & 0xff00) >> 8);
+//			tcp_buf[3] = (HB_U8) ((rtp_size & 0xff));
 
-//			RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(dev_node->client_node_head), 0);
-//			printf("11111111111111111111\n");
-//			sendto(client_node->rtp_fd_video, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(client_node->udp_video.rtp_peer)), \
-//								(socklen_t)(sizeof(struct sockaddr_in)));
-
-			HB_S32 i = 0;
-			HB_S32 client_list_size = 0;
-			HB_S32 tmp_list_size = 0;
-			client_list_size = list_size(&(dev_node->client_node_head));
-
-			while (client_list_size)
+			i = 0;
+			tmp_list_size = client_list_size;
+			while (tmp_list_size)
 			{
-				RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(dev_node->client_node_head), i);
-//				printf("11111111111111111111\n");
-//				printf("111111111111client ip[%s], port[%d]\n", htonl(client_node->udp_video.rtp_peer.sin_addr.s_addr), htons(client_node->udp_video.rtp_peer.sin_port));
+				client_node = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(dev_node->client_node_head), i);
+//				printf("111111111111client call_id[%s]\n", client_node->call_id);
+				if ((client_node->send_Iframe_flag == 0) && (frame_type == 1))
+				{
+					client_node->send_Iframe_flag = 1;
+				}
 
-				if (client_node->delete_flag != 1)
+				if ((client_node->delete_flag == 0) && (client_node->send_Iframe_flag == 1))
 				{
 					sendto(client_node->rtp_fd_video, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(client_node->udp_video.rtp_peer)), \
 										(socklen_t)(sizeof(struct sockaddr_in)));
-					++i;
 				}
-				else
+				else if (client_node->delete_flag == 1)
 				{
+					printf("del client from list\n");
+					pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
 					list_delete(&(dev_node->client_node_head), client_node);
+					pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
 					free(client_node);
 					client_node = NULL;
+					printf("del client from list ok\n");
+					client_list_size--;
+					--i;
 				}
 
-				client_list_size--;
+				++i;
+				tmp_list_size--;
 			}
-//			send_udp_data(&stUdpInfo, rtp_buf, rtp_size);
 
-			//memcpy(data_ptr + cur_data_size, tcp_buf, 4);
-			//memcpy(data_ptr + cur_data_size +4, rtp_buf, rtp_size);
-			memmove(data_ptr + cur_data_size, tcp_buf, 4);
-			memmove(data_ptr + cur_data_size + 4, rtp_buf, rtp_size);
-//			sendto(udp_socket, rtp_buf, rtp_size, 0,(struct sockaddr *)&server_addr, addr_len);
-
-			cur_data_size += (rtp_size + 4);
+//			memmove(data_ptr + cur_data_size, tcp_buf, 4);
+//			memmove(data_ptr + cur_data_size + 4, rtp_buf, rtp_size);
+//			cur_data_size += (rtp_size + 4);
 		}
 		return cur_data_size;
-		if (0 == frame_type)
-		{
-			return cur_data_size;
-		}
-		else
-		{
-			//更换起始地址，为下一次循环做准备
-			start_pos = end_pos;
-		}
+
+//		if (0 == frame_type)
+//		{
+//			return cur_data_size;
+//		}
+//		else
+//		{
+//			//更换起始地址，为下一次循环做准备
+//			start_pos = end_pos;
+//		}
 	}
 
 	return cur_data_size;

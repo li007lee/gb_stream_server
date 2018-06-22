@@ -34,9 +34,9 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 	{
 		case PLAY:
 		{
-			DEV_NODE_HANDLE dev_node = InsertNodeToDevHashTable(stream_hash_table, &sip_node);
+			STREAM_NODE_HANDLE dev_node = InsertNodeToDevHashTable(stream_hash_table, &sip_node);
 			HB_S32 hash_value = dev_node->dev_node_hash_value;
-			pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+			pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
 			//查找客户节点
 			RTP_CLIENT_TRANSPORT_HANDLE client_node = FindClientNode(dev_node, sip_node.call_id);
 			if (NULL == client_node)
@@ -55,20 +55,21 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 //						client_node->udp_video.rtp_peer.sin_addr.s_addr=htonl(sip_node->push_ip);
 				client_node->udp_video.rtp_peer.sin_port = htons(client_node->udp_video.cli_ports.RTP);
 				inet_aton(sip_node.push_ip, &(client_node->udp_video.rtp_peer.sin_addr));
-
+				printf("#######################append client  call_id:[%s]\n", sip_node.call_id);
 				list_append(&(dev_node->client_node_head), client_node);
 			}
 
 //			printf("client ip[%s], port[%d]\n", htonl(client_node->udp_video.rtp_peer.sin_addr.s_addr), htons(client_node->udp_video.rtp_peer.sin_port));
 			play_rtsp_video_from_hbserver(dev_node);
-			pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+//			play_rtsp_video_from_box(dev_node);
+			pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
 			printf("succeed!\n");
 		}
 			break;
 		case STOP:
 		{
 			printf("\n*************************** recv del client from sip\n");
-			DEV_NODE_HANDLE dev_node = FindDevFromDevHashTable(stream_hash_table, &sip_node);
+			STREAM_NODE_HANDLE dev_node = FindDevFromDevHashTable(stream_hash_table, &sip_node);
 			if (NULL != dev_node)
 			{
 				printf("111111111111111111sip_node.call_id=[%s]\n", sip_node.call_id);

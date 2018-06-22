@@ -124,8 +124,8 @@ typedef struct _BoxDeviceInfo
 #endif
 
 
-HB_S32 play_rtsp_video_from_hbserver(DEV_NODE_HANDLE dev_node);
-HB_S32 play_rtsp_video_frome_box(DEV_NODE_HANDLE dev_node);
+HB_S32 play_rtsp_video_from_hbserver(STREAM_NODE_HANDLE dev_node);
+HB_S32 play_rtsp_video_from_box(STREAM_NODE_HANDLE dev_node);
 
 
 #endif /* GET_STREAM_H_ */

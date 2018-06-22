@@ -369,19 +369,32 @@ static HB_VOID udp_recv_cb(const int sock, short int which, void *arg)
 				build_response_default(&response, NULL, 200, sip);
 				osip_message_set_content_type(response, "application/sdp");
 				osip_message_get_contact(sip, 0, &contact);
-				snprintf(tmp, sizeof(tmp), "<sip:%s@192.168.118.14:5060>", contact->url->username);
+				snprintf(tmp, sizeof(tmp), "<sip:%s@%s:5060>", contact->url->username, LOCAL_IP);
 				osip_message_set_contact(response, tmp);
 				printf("contact : [%s]\n", tmp);
 				snprintf(response_body, sizeof(response_body), "v=0\r\n"
-								"o=%s 0 0 IN IP4 192.168.118.14\r\n"
+								"o=%s 0 0 IN IP4 %s\r\n"
 								"s=Play\r\n"
-								"c=IN IP4 192.168.118.14\r\n"
+								"c=IN IP4 %s\r\n"
 								"t=0 0\r\n"
 								"m=video 0 RTP/AVP 96\r\n"
 								"a=streamMode:%d\r\n"
 								"a=recvonly\r\n"
 								"a=rtpmap:96 PS/90000\r\n"
-								"y=%s\r\n\r\n", sip_node->sip_dev_id, sip_node->stream_type, sip_node->ssrc);
+								"y=%s\r\n\r\n", sip_node->sip_dev_id, LOCAL_IP, LOCAL_IP, sip_node->stream_type, sip_node->ssrc);
+//				snprintf(tmp, sizeof(tmp), "<sip:%s@192.168.118.14:5060>", contact->url->username);
+//				osip_message_set_contact(response, tmp);
+//				printf("contact : [%s]\n", tmp);
+//				snprintf(response_body, sizeof(response_body), "v=0\r\n"
+//								"o=%s 0 0 IN IP4 192.168.118.14\r\n"
+//								"s=Play\r\n"
+//								"c=IN IP4 192.168.118.14\r\n"
+//								"t=0 0\r\n"
+//								"m=video 0 RTP/AVP 96\r\n"
+//								"a=streamMode:%d\r\n"
+//								"a=recvonly\r\n"
+//								"a=rtpmap:96 PS/90000\r\n"
+//								"y=%s\r\n\r\n", sip_node->sip_dev_id, sip_node->stream_type, sip_node->ssrc);
 
 				osip_message_set_body(response, response_body, strlen(response_body));
 				osip_message_to_str(response, &dest, (size_t *) &message_len);

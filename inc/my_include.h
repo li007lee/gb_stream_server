@@ -11,52 +11,35 @@
 
 #include <stdio.h>
 #include <pthread.h>
-#include<stdio.h>
 #include <assert.h>
-#include<stdlib.h>
+#include <stdlib.h>
 #include <ctype.h>
-#include<sys/types.h>
-#include<sys/socket.h>
-#include<unistd.h>
-#include<fcntl.h>
-#include<netinet/in.h>
-#include<signal.h>
-#include<arpa/inet.h>
-#include<sys/select.h>
-#include<errno.h>
-#include<strings.h>
-#include<string.h>
-#include<signal.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <errno.h>
+#include <string.h>
 #include <time.h>
-#include <sys/time.h>
-#include <sys/stat.h>
 #include <net/if.h>
 #include <resolv.h>
 #include <net/if_arp.h>
-#include <sys/types.h>
 #include <sys/param.h>
 #include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <net/if.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <string.h>
-#include <netinet/in.h>
+#include <sys/epoll.h>
+#include <sys/wait.h>
+#include <sys/mman.h>
+#include <sys/time.h>
+#include <sys/stat.h>
+#include <sys/select.h>
 #include <ifaddrs.h>
 #include <net/ethernet.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <netpacket/packet.h>
-#include <net/ethernet.h>
 #include <netdb.h>
-#include <errno.h>
 #include <netinet/ip.h>
-#include <strings.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/wait.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <sys/mman.h>
 #include <syslog.h>
 
 
@@ -119,6 +102,7 @@ typedef enum _tagHB_BOOL
 #define LIBEVENT_WRITE_BUF_SIZE		(2097152) //20M
 //#define LIBEVENT_WRITE_BUF_SIZE		(1048576) //1M
 
+//#define LOCAL_IP "172.16.3.100"
 #define ETH_X	"eth0"
 #define DEV_DATA_BASE_NAME "/home/default/TM_X01_Data.db"
 //#define DEV_DATA_BASE_NAME "../data/TM_X01_Data.db"

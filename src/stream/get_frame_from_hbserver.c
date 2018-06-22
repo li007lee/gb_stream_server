@@ -176,7 +176,7 @@ static HB_S32 disable_client_rtp_list_bev(list_t *client_node_head)
 
 void recv_stream_cb(struct bufferevent *connect_hbserver_bev, HB_VOID *event_args)
 {
-	DEV_NODE_HANDLE dev_node = (DEV_NODE_HANDLE)event_args;
+	STREAM_NODE_HANDLE dev_node = (STREAM_NODE_HANDLE)event_args;
 	NET_LAYER stPackage;
 	struct evbuffer *src = bufferevent_get_input(connect_hbserver_bev);			//获取输入缓冲区
 	struct sttask *ptsk;
@@ -248,7 +248,7 @@ void recv_stream_cb(struct bufferevent *connect_hbserver_bev, HB_VOID *event_arg
 					if(0 == list_size(&(dev_node->streaming_node_head)))
 					{
 						list_destroy(&(dev_node->streaming_node_head));
-						list_remove(&(sip_hash_table->hash_node[p_stream_node->dev_node_hash_value].dev_node_head), dev_node);
+						list_remove(&(sip_hash_table->hash_node[p_stream_node->dev_node_hash_value].stream_node_head), dev_node);
 						free(dev_node);
 						dev_node = NULL;
 					}
@@ -336,9 +336,9 @@ void recv_stream_cb(struct bufferevent *connect_hbserver_bev, HB_VOID *event_arg
 	if (0 == dev_node->rtp_client_node_send_data_thread_flag)	//rtp发送线程还未启动
 	{
 		TRACE_ERR("recv_stream_cb()   rtp_client_node_send_data_thread_flag = 0");
-		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
-		list_delete(&(stream_hash_table->stream_node_head[hash_value].dev_node_head), dev_node);
-		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
+		list_delete(&(stream_hash_table->stream_node_head[hash_value].stream_node_head), dev_node);
+		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
 		destroy_client_rtp_list(&(dev_node->client_node_head));	//释放rtp客户队列
 		delete_rtp_data_list(dev_node->stream_data_queue);	//释放视频队列
 		nolock_queue_destroy(&(dev_node->stream_data_queue));
@@ -354,17 +354,17 @@ void recv_stream_cb(struct bufferevent *connect_hbserver_bev, HB_VOID *event_arg
 	else if (1 == dev_node->rtp_client_node_send_data_thread_flag)	//如果rtp节点发送线程已经启动,这里只是把节点摘除，并不释放，由rtp发送线程释放
 	{
 		TRACE_ERR("recv_stream_cb()   rtp_client_node_send_data_thread_flag = 1");
-		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
 		disable_client_rtp_list_bev(&(dev_node->client_node_head));
-		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
 		dev_node->get_stream_thread_start_flag = 2; //接受数据流模块已退出
 	}
 	else if (2 == dev_node->rtp_client_node_send_data_thread_flag) //rtp发送线程启动后，异常标志置位,这里只置位接收模块标志，摘除释放工作由rtp发送线程执行
 	{
 		TRACE_ERR("recv_stream_cb()   rtp_client_node_send_data_thread_flag = 2");
-		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
 		disable_client_rtp_list_bev(&(dev_node->client_node_head));
-		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
 
 		dev_node->get_stream_thread_start_flag = 2; //接受数据流模块已退出
 	}
@@ -373,7 +373,7 @@ void recv_stream_cb(struct bufferevent *connect_hbserver_bev, HB_VOID *event_arg
 
 HB_VOID recv_stream_err_cb(struct bufferevent *connect_hbserver_bev, HB_S16 event, HB_VOID *arg)
 {
-	DEV_NODE_HANDLE dev_node = (DEV_NODE_HANDLE)(arg);
+	STREAM_NODE_HANDLE dev_node = (STREAM_NODE_HANDLE)(arg);
 
 	HB_S32 hash_value = 0;
 	hash_value = dev_node->dev_node_hash_value;
@@ -431,19 +431,19 @@ HB_VOID recv_stream_err_cb(struct bufferevent *connect_hbserver_bev, HB_S16 even
 	else if (1 == dev_node->rtp_client_node_send_data_thread_flag) //如果rtp节点发送线程已经启动,这里只是把节点摘除，并不释放，由rtp发送线程释放
 	{
 		TRACE_ERR("recv_stream_err_cb()   rtp_client_node_send_data_thread_flag = 1");
-		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
 		disable_client_rtp_list_bev(&(dev_node->client_node_head));
 		dev_node->get_stream_thread_start_flag = 2; //接受数据流模块已退出
-		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
 		return;
 	}
 	else if (2 == dev_node->rtp_client_node_send_data_thread_flag) //rtp发送线程启动后，异常标志置位,这里只置位接收模块标志，摘除释放工作由rtp发送线程执行
 	{
 		TRACE_ERR("recv_stream_err_cb()   rtp_client_node_send_data_thread_flag = 2");
-		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+		pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
 		disable_client_rtp_list_bev(&(dev_node->client_node_head));
 		dev_node->get_stream_thread_start_flag = 2; //接受数据流模块已退出
-		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].dev_mutex));
+		pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
 	}
 	return;
 #endif
@@ -453,7 +453,7 @@ HB_VOID recv_cmd_from_hbserver(struct bufferevent *connect_hbserver_bev, HB_VOID
 {
 	HB_S32 ret = 0;
 	NET_LAYER stPackage;
-	DEV_NODE_HANDLE dev_node = (DEV_NODE_HANDLE)event_args;
+	STREAM_NODE_HANDLE dev_node = (STREAM_NODE_HANDLE)event_args;
 	struct evbuffer *src = bufferevent_get_input(connect_hbserver_bev); //获取输入缓冲区
 
 	for (;;)
@@ -527,7 +527,7 @@ HB_VOID recv_cmd_from_hbserver(struct bufferevent *connect_hbserver_bev, HB_VOID
 
 HB_VOID connect_event_cb(struct bufferevent *connect_hbserver_bev, HB_S16 event, HB_VOID *arg)
 {
-	DEV_NODE_HANDLE dev_node = (DEV_NODE_HANDLE) (arg);
+	STREAM_NODE_HANDLE dev_node = (STREAM_NODE_HANDLE) (arg);
 
 	HB_S32 hash_value = 0;
 	hash_value = dev_node->dev_node_hash_value;
@@ -598,7 +598,7 @@ HB_VOID connect_event_cb(struct bufferevent *connect_hbserver_bev, HB_S16 event,
 //		if(0 == list_size(&(dev_node->streaming_node_head)))
 //		{
 //			list_destroy(&(dev_node->streaming_node_head));
-//			list_remove(&(sip_hash_table->hash_node[hash_value].dev_node_head), dev_node);
+//			list_remove(&(sip_hash_table->hash_node[hash_value].stream_node_head), dev_node);
 //			free(dev_node);
 //			dev_node = NULL;
 //		}
@@ -611,7 +611,7 @@ HB_VOID connect_event_cb(struct bufferevent *connect_hbserver_bev, HB_S16 event,
 #endif
 }
 
-HB_S32 play_rtsp_video_from_hbserver(DEV_NODE_HANDLE dev_node)
+HB_S32 play_rtsp_video_from_hbserver(STREAM_NODE_HANDLE dev_node)
 {
 	if (1 == dev_node->rtsp_play_flag)
 	{
