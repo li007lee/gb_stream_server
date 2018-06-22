@@ -7,8 +7,8 @@
 
 #include "sip_hash.h"
 
-#include "common/common_args.h"
-#include "common/hash_table.h"
+#include "common_args.h"
+#include "hash_table.h"
 
 static HB_S32 find_call_id(const HB_VOID *el, const HB_VOID *key)
 {
@@ -17,11 +17,12 @@ static HB_S32 find_call_id(const HB_VOID *el, const HB_VOID *key)
 		TRACE_ERR("called with NULL pointer: el=%p, key=%p", el, key);
 		return 0;
 	}
-	SIP_NODE_HANDLE sip_node = (SIP_NODE_HANDLE)el;
-	HB_CHAR *p_call_id = (HB_CHAR *)key;
-	if (!strcmp(sip_node->call_id, p_call_id))
+
+	SIP_NODE_HANDLE pSipNode = (SIP_NODE_HANDLE)el;
+	HB_CHAR *pCallId = (HB_CHAR *)key;
+	if (!strcmp(pSipNode->cCallId, pCallId))
 	{
-		printf("Find dev call id: [%s]\n", p_call_id);
+		printf("Find dev call id: [%s]\n", pCallId);
 		return 1;
 	}
 
@@ -29,179 +30,182 @@ static HB_S32 find_call_id(const HB_VOID *el, const HB_VOID *key)
 }
 
 
-SIP_NODE_HANDLE InsertNodeToSipHashTable(SIP_HASH_TABLE_HANDLE p_sip_hash_table, SIP_DEV_ARGS_HANDLE p_sip_dev_info)
+SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pSipHashTable, SIP_DEV_ARGS_HANDLE pSipDevInfo)
 {
-	printf("\nIIIIIIIIIIII  InsertNodeToSipHashTable dev_id=[%s], call_id=[%s], hash_table_len=[%d]\n", p_sip_dev_info->st_sip_dev_id, p_sip_dev_info->call_id, p_sip_hash_table->hash_table_len);
-	HB_U32 mHashValue = pHashFunc(p_sip_dev_info->call_id) % p_sip_hash_table->hash_table_len;
-	SIP_NODE_HANDLE sip_node = NULL;
+	printf("\nIIIIIIIIIIII  InsertNodeToSipHashTable dev_id=[%s], call_id=[%s], uHashTableLen=[%d]\n", pSipDevInfo->st_sip_dev_id, pSipDevInfo->call_id, pSipHashTable->uHashTableLen);
+	HB_U32 uHashValue = pHashFunc(pSipDevInfo->call_id) % pSipHashTable->uHashTableLen;
+	SIP_NODE_HANDLE pSipNode = NULL;
 
-	pthread_mutex_lock(&(p_sip_hash_table->sip_hash_node_head[mHashValue].dev_mutex));
-	list_attributes_seeker(&(p_sip_hash_table->sip_hash_node_head[mHashValue].sip_node_head), find_call_id);
-	sip_node = list_seek(&(p_sip_hash_table->sip_hash_node_head[mHashValue].sip_node_head), p_sip_dev_info->call_id);
+	pthread_mutex_lock(&(pSipHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
+	list_attributes_seeker(&(pSipHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), find_call_id);
+	pSipNode = list_seek(&(pSipHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), pSipDevInfo->call_id);
 	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
-	if(NULL == sip_node)
+	if(NULL == pSipNode)
 	{
 		//当前申请的设备不存在（说明是新的设备）
 		//如果当前节点不存在设备，直接插入连表（说明是新设备）
-		sip_node = (SIP_NODE_HANDLE)calloc(1, sizeof(SIP_NODE_OBJ));
-		strncpy(sip_node->sip_dev_id, p_sip_dev_info->st_sip_dev_id, sizeof(sip_node->sip_dev_id));
-		strncpy(sip_node->dev_id, p_sip_dev_info->st_dev_id, sizeof(sip_node->dev_id));
-		strncpy(sip_node->call_id, p_sip_dev_info->call_id, sizeof(sip_node->call_id));
-		strncpy(sip_node->stream_server_ip, p_sip_dev_info->st_stram_server_ip, sizeof(sip_node->stream_server_ip));
-		sip_node->stream_server_port = p_sip_dev_info->st_stream_server_port;
-		sip_node->chnl = p_sip_dev_info->st_dev_chnl;
-		sip_node->stream_type = p_sip_dev_info->st_stream_type;
-		strncpy(sip_node->push_ip, p_sip_dev_info->st_push_ip, sizeof(sip_node->push_ip));
-		sip_node->push_port = p_sip_dev_info->st_push_port;
-		sip_node->sip_node_hash_value = mHashValue;
-		strncpy(sip_node->ssrc, p_sip_dev_info->st_y, sizeof(sip_node->ssrc));
-		list_append(&(p_sip_hash_table->sip_hash_node_head[mHashValue].sip_node_head), (HB_VOID*)sip_node);
+		pSipNode = (SIP_NODE_HANDLE)calloc(1, sizeof(SIP_NODE_OBJ));
+		strncpy(pSipNode->cSipDevSn, pSipDevInfo->st_sip_dev_id, sizeof(pSipNode->cSipDevSn));
+		strncpy(pSipNode->cDevId, pSipDevInfo->st_dev_id, sizeof(pSipNode->cDevId));
+		strncpy(pSipNode->cCallId, pSipDevInfo->call_id, sizeof(pSipNode->cCallId));
+		strncpy(pSipNode->cStreamServerIp, pSipDevInfo->st_stram_server_ip, sizeof(pSipNode->cStreamServerIp));
+		pSipNode->iStreamServerPort = pSipDevInfo->st_stream_server_port;
+		pSipNode->iDevChnl = pSipDevInfo->st_dev_chnl;
+		pSipNode->iStreamType = pSipDevInfo->st_stream_type;
+		strncpy(pSipNode->cPushIp, pSipDevInfo->st_push_ip, sizeof(pSipNode->cPushIp));
+		pSipNode->iPushPort = pSipDevInfo->st_push_port;
+		pSipNode->iSipNodeHashValue = uHashValue;
+		strncpy(pSipNode->cSsrc, pSipDevInfo->st_y, sizeof(pSipNode->cSsrc));
+		list_append(&(pSipHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), (HB_VOID*)pSipNode);
 
 	}
-	pthread_mutex_unlock(&(p_sip_hash_table->sip_hash_node_head[mHashValue].dev_mutex));
-	return sip_node;
+	pthread_mutex_unlock(&(pSipHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
+	return pSipNode;
 }
 
 
-SIP_NODE_HANDLE FindNodeFromSipHashTable(SIP_HASH_TABLE_HANDLE pHashTable, SIP_DEV_ARGS_HANDLE p_sip_dev_info)
+SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, SIP_DEV_ARGS_HANDLE pSipDevInfo)
 {
-	printf("\nFFFFFFFFFF  FindNodeFromSipHashTable call_id=[%s], hash_table_len=[%d]\n", p_sip_dev_info->call_id, pHashTable->hash_table_len);
-	HB_U32 mHashValue = pHashFunc(p_sip_dev_info->call_id) % pHashTable->hash_table_len;
-	printf("mHashValue=%u\n", mHashValue);
+	printf("\nFFFFFFFFFF  FindNodeFromSipHashTable call_id=[%s], uHashTableLen=[%d]\n", pSipDevInfo->call_id, pHashTable->uHashTableLen);
+	HB_U32 uHashValue = pHashFunc(pSipDevInfo->call_id) % pHashTable->uHashTableLen;
+	printf("mHashValue=%u\n", uHashValue);
 
-	SIP_NODE_HANDLE sip_node = NULL;
+	SIP_NODE_HANDLE pSipNode = NULL;
 
-	pthread_mutex_lock(&(pHashTable->sip_hash_node_head[mHashValue].dev_mutex));
+	pthread_mutex_lock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 
-	list_attributes_seeker(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), find_call_id);
-	sip_node = list_seek(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), p_sip_dev_info->call_id);
+	list_attributes_seeker(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), find_call_id);
+	pSipNode = list_seek(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), pSipDevInfo->call_id);
 
 	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
-	if(NULL != sip_node)
+	if(NULL != pSipNode)
 	{
-		printf("FOUND FOUND FOUND FOUND FOUND CALL ID : [%s]\n", sip_node->call_id);
+		printf("FOUND FOUND FOUND FOUND FOUND CALL ID : [%s]\n", pSipNode->cCallId);
 	}
 	else
 	{
 		//当前申请的设备不存在
-		printf("do not found call id:[%s]!\n", p_sip_dev_info->call_id);
+		printf("do not found call id:[%s]!\n", pSipDevInfo->call_id);
 	}
 
-	pthread_mutex_unlock(&(pHashTable->sip_hash_node_head[mHashValue].dev_mutex));
-	return sip_node;
+	pthread_mutex_unlock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
+	return pSipNode;
 }
 
 
-HB_VOID DelNodeFromSipHashTable(SIP_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE sip_node)
+HB_VOID del_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE pSipNode)
 {
-	printf("\nFFFFFFFFFF  FindNodeFromSipHashTable call_id=[%s], hash_table_len=[%d]\n", sip_node->call_id, pHashTable->hash_table_len);
-	HB_U32 mHashValue = sip_node->sip_node_hash_value;
+	printf("\nFFFFFFFFFF  FindNodeFromSipHashTable call_id=[%s], uHashTableLen=[%d]\n", pSipNode->cCallId, pHashTable->uHashTableLen);
+	HB_U32 mHashValue = pSipNode->iSipNodeHashValue;
 	printf("mHashValue=%u\n", mHashValue);
 
-	pthread_mutex_lock(&(pHashTable->sip_hash_node_head[mHashValue].dev_mutex));
-	list_delete(&(pHashTable->sip_hash_node_head[mHashValue].sip_node_head), sip_node);
-	pthread_mutex_unlock(&(pHashTable->sip_hash_node_head[mHashValue].dev_mutex));
+	pthread_mutex_lock(&(pHashTable->pSipHashNodeHead[mHashValue].lockSipNodeMutex));
+	list_delete(&(pHashTable->pSipHashNodeHead[mHashValue].listSipNodeHead), pSipNode);
+	pthread_mutex_unlock(&(pHashTable->pSipHashNodeHead[mHashValue].lockSipNodeMutex));
 	return;
 }
 
 
 
 //获取哈希表的状态
-HB_VOID GetSipHashState(SIP_HASH_TABLE_HANDLE pHashTable, HB_CHAR *hash_state_json)
+HB_VOID get_sip_hash_state(SIP_HASH_TABLE_HANDLE pHashTable, HB_CHAR *pHashStateJson)
 {
-    HB_S32 backet = 0;
-    HB_S32 sum = 0;
+    HB_S32 iBacket = 0;
+    HB_S32 iSum = 0;
     HB_U32 i=0;
-    HB_U32 max_link=0;
-    HB_S32 conflict_count = 0;
-    HB_S32 hit_count = 0;
-    HB_S32 mEntryCount = 0;
-    double avg_link, backet_usage;
+    HB_U32 uMaxLink=0;
+    HB_S32 iConflictCount = 0;
+    HB_S32 iHitCount = 0;
+    HB_S32 iEntryCount = 0;
+    double fAvgLink, fBacketUsage;
 
-    for(i = 0; i < pHashTable->hash_table_len; i++)
+    for(i = 0; i < pHashTable->uHashTableLen; i++)
     {
     	//pthread_rwlock_rdlock (&(pHashTable->hash_node[i].dev_rwlock));
-    	mEntryCount = list_size(&(pHashTable->sip_hash_node_head[i].sip_node_head));
-        if (mEntryCount > 0)
+    	iEntryCount = list_size(&(pHashTable->pSipHashNodeHead[i].listSipNodeHead));
+        if (iEntryCount > 0)
         {
-            backet++;
-            sum += mEntryCount;
-            if (mEntryCount > max_link)
+        	iBacket++;
+        	iSum += iEntryCount;
+            if (iEntryCount > uMaxLink)
             {
-                max_link = mEntryCount;
+            	uMaxLink = iEntryCount;
             }
-            if (mEntryCount > 1)
+            if (iEntryCount > 1)
             {
-                conflict_count++;
+            	iConflictCount++;
             }
             else
             {
-            	hit_count++;
+            	iHitCount++;
             }
         }
         //pthread_rwlock_unlock (&(pHashTable->hash_node[i].dev_rwlock));
     }
 
-    backet_usage = backet/1.0/pHashTable->hash_table_len * 100;
-    if(0 == backet)
+    fBacketUsage = iBacket/1.0/pHashTable->uHashTableLen * 100;
+    if(0 == iBacket)
     {
-    	avg_link = 0;
+    	fAvgLink = 0;
     }
     else
     {
-    	avg_link = sum/1.0/backet;
+    	fAvgLink = iSum/1.0/iBacket;
     }
 
-    sprintf(hash_state_json, "{\"CmdType\":\"hash_state\",\"HashTableLen\":%u,\"no_repetition_bucket_nums\":%d,"
+    sprintf(pHashStateJson, "{\"CmdType\":\"hash_state\",\"HashTableLen\":%u,\"no_repetition_bucket_nums\":%d,"
     		"\"conflict_bucket_nums\":%d,\"longest_bucket_list\":%d,\"average_bucket_list_length\":%.2f,\"backet usage\":\"%.2f%%\"}",
-			pHashTable->hash_table_len, hit_count, conflict_count, max_link, avg_link, backet_usage);
-    printf("bucket_len = %d\n", pHashTable->hash_table_len);   ///哈希表的桶的个数
+			pHashTable->uHashTableLen, iHitCount, iConflictCount, uMaxLink, fAvgLink, fBacketUsage);
+    printf("bucket_len = %d\n", pHashTable->uHashTableLen);   ///哈希表的桶的个数
    /// printf("hash_call_count = %d/n", hash_call_count);	///建立hash表的字符串的个数
-    printf("No repetition bucket nums = %d\n", hit_count);		///建立hash表的不重复的元素的个数
-    printf("Conflict bucket nums = %d\n", conflict_count);		///存在冲突的桶的个数
-    printf("longest bucket list = %d\n", max_link);			///最长的链的长度
-    printf("average bucket list length = %.2f\n", avg_link);  ///链表的平均长度
-    printf("backet usage = %.2f%%\n", backet_usage);			///hash table的桶的使用率
+    printf("No repetition bucket nums = %d\n", iHitCount);		///建立hash表的不重复的元素的个数
+    printf("Conflict bucket nums = %d\n", iConflictCount);		///存在冲突的桶的个数
+    printf("longest bucket list = %d\n", uMaxLink);			///最长的链的长度
+    printf("average bucket list length = %.2f\n", fAvgLink);  ///链表的平均长度
+    printf("backet usage = %.2f%%\n", fBacketUsage);			///hash table的桶的使用率
 }
 
 
 ///initial hash table
-HB_VOID SipHashTableInit(SIP_HASH_TABLE_HANDLE p_hash_table)
+static HB_VOID sip_hash_table_init(SIP_HASH_TABLE_HANDLE hHashTable)
 {
 	HB_U32 i = 0;
-	if ((NULL == p_hash_table) || (NULL == p_hash_table->sip_hash_node_head))
+	if ((NULL == hHashTable) || (NULL == hHashTable->pSipHashNodeHead))
 	{
 		printf("\n######## HashTableInit: malloc p_hash_table or hash_node failed\n");
 		return;
 	}
-	for (i = 0; i < p_hash_table->hash_table_len; i++)
+	for (i = 0; i < hHashTable->uHashTableLen; i++)
 	{
-		pthread_mutex_init(&(p_hash_table->sip_hash_node_head[i].dev_mutex), NULL);
-		list_init(&(p_hash_table->sip_hash_node_head[i].sip_node_head));
+		pthread_mutex_init(&(hHashTable->pSipHashNodeHead[i].lockSipNodeMutex), NULL);
+		list_init(&(hHashTable->pSipHashNodeHead[i].listSipNodeHead));
 	}
 }
 
 
-//创建哈希结构
-SIP_HASH_TABLE_HANDLE SipHashTableCreate(HB_U32 table_len)
+//创建哈希结构并初始化
+SIP_HASH_TABLE_HANDLE sip_hash_table_create(HB_U32 uTableLen)
 {
-	SIP_HASH_TABLE_HANDLE sip_hash_node = NULL;
-	sip_hash_node = (SIP_HASH_TABLE_HANDLE) malloc(sizeof(SIP_HASH_TABLE_OBJ));
-	if (NULL == sip_hash_node)
+	SIP_HASH_TABLE_HANDLE pSipHashNode = NULL;
+	pSipHashNode = (SIP_HASH_TABLE_HANDLE)malloc(sizeof(SIP_HASH_TABLE_OBJ));
+	if (NULL == pSipHashNode)
 	{
 		printf("\n#########  malloc hash table filled\n");
 		return NULL;
 	}
-	sip_hash_node->hash_table_len = table_len;
-	sip_hash_node->sip_hash_node_head = (SIP_HEAD_OF_HASH_TABLE_HANDLE) malloc(sizeof(SIP_HEAD_OF_HASH_TABLE_OBJ) * sip_hash_node->hash_table_len);
-	if (NULL == sip_hash_node->sip_hash_node_head)
+	pSipHashNode->uHashTableLen = uTableLen;
+	pSipHashNode->pSipHashNodeHead = (SIP_HEAD_OF_HASH_TABLE_HANDLE) malloc(sizeof(SIP_HEAD_OF_HASH_TABLE_OBJ) * pSipHashNode->uHashTableLen);
+	if (NULL == pSipHashNode->pSipHashNodeHead)
 	{
-		free(sip_hash_node);
-		sip_hash_node = NULL;
+		free(pSipHashNode);
+		pSipHashNode = NULL;
 		printf("\n#########  malloc hash node filled\n");
 		return NULL;
 	}
-	return sip_hash_node;
+
+	sip_hash_table_init(pSipHashNode);
+
+	return pSipHashNode;
 }
 
 

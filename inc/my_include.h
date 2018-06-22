@@ -51,36 +51,36 @@
 ///////////////////////////////////////////////////////////////////////////////////////////
 //数据类型定义
 ///////////////////////////////////////////////////////////////////////////////////////////
-typedef unsigned char              HB_U8;
-typedef unsigned short            HB_U16;
-typedef unsigned int                 HB_U32;
-typedef unsigned long long    HB_U64;
-typedef signed char                   HB_S8;
-typedef short                                HB_S16;
-typedef int                                     HB_S32;
-typedef long long                        HB_S64;
-typedef char                                 HB_CHAR;
-typedef float                                 HB_FLOAT;
-typedef void                                  HB_VOID;
-typedef void *                               HB_HANDLE;
+typedef unsigned char		HB_U8;
+typedef unsigned short		HB_U16;
+typedef unsigned int		HB_U32;
+typedef unsigned long long	HB_U64;
+typedef signed char	HB_S8;
+typedef short		HB_S16;
+typedef int			HB_S32;
+typedef long long	HB_S64;
+typedef char		HB_CHAR;
+typedef float		HB_FLOAT;
+typedef void		HB_VOID;
+typedef void *		HB_HANDLE;
 #endif
 
 #ifdef X86_64bit
 ///////////////////////////////////////////////////////////////////////////////////////////
 //数据类型定义
 ///////////////////////////////////////////////////////////////////////////////////////////
-typedef char                                    HB_CHAR;
-typedef unsigned char                  HB_U8;
-typedef short                                   HB_S16;
-typedef unsigned short                 HB_U16;
-typedef int                                        HB_S32;
-typedef unsigned int                      HB_U32;
-typedef unsigned long                  HB_U64;
-typedef signed char                       HB_S8;
-typedef long                                    HB_S64;
-typedef float                                   HB_FLOAT;
-typedef void                                    HB_VOID;
-typedef void *                                 HB_HANDLE;
+typedef char			HB_CHAR;
+typedef unsigned char	HB_U8;
+typedef short			HB_S16;
+typedef unsigned short	HB_U16;
+typedef int				HB_S32;
+typedef unsigned int	HB_U32;
+typedef unsigned long	HB_U64;
+typedef signed char		HB_S8;
+typedef long		HB_S64;
+typedef float		HB_FLOAT;
+typedef void		HB_VOID;
+typedef void *		HB_HANDLE;
 #endif
 
 typedef enum _tagHB_BOOL

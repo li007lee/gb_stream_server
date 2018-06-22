@@ -7,7 +7,7 @@
 
 #include "rtp_pack.h"
 
-#include "../dev_hash.h"
+#include "../stream_hash.h"
 
 extern STREAM_HASH_TABLE_HANDLE stream_hash_table;
 
@@ -256,10 +256,10 @@ static HB_S32 set_rtp_pack1(rtp_info_t *rtp_info, HB_CHAR *ps_data_buf,
 
 
 //返回当前节点中数据长度
-HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE dev_node, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
+HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
 {
 	HB_S32 addr_len = sizeof(struct sockaddr_in);
-	HB_S32 hash_value = dev_node->dev_node_hash_value;
+	HB_S32 hash_value = p_stream_node->iStreamNodeHashValue;
 	HB_U32 left_bytes = 0;
 	HB_U32 cur_data_size = 0;
 	HB_U32 end_of_frame = 0;
@@ -272,7 +272,7 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE dev_node, HB_CHAR *data_ptr, 
 	HB_CHAR tmp_sps_pps[128] = { 0 };
 	HB_CHAR sql[512] = { 0 };
 	rtp_info_t *rtp_info = NULL;
-	rtp_info = &(dev_node->rtp_session.rtp_info_video);
+	rtp_info = &(p_stream_node->stRtpSession.rtp_info_video);
 	start_pos = data_ptr + rtp_data_buf_pre_size;
 	left_bytes = data_size;
 	RTP_CLIENT_TRANSPORT_HANDLE client_node = NULL;
@@ -285,7 +285,7 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE dev_node, HB_CHAR *data_ptr, 
 		//将NAL的信息填充进rtp信息的结构体中
 		set_rtp_pack1(rtp_info, start_pos, left_bytes, time_stamp, 1);
 
-		client_list_size = list_size(&(dev_node->client_node_head));
+		client_list_size = list_size(&(p_stream_node->listClientNodeHead));
 		//RTP分包，从一个NALU数据中获取一包RTP数据
 		while ((rtp_buf = get_rtp_ps_pack(rtp_info, &rtp_size)) != NULL)
 		{
@@ -300,24 +300,24 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE dev_node, HB_CHAR *data_ptr, 
 			tmp_list_size = client_list_size;
 			while (tmp_list_size)
 			{
-				client_node = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(dev_node->client_node_head), i);
+				client_node = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(p_stream_node->listClientNodeHead), i);
 //				printf("111111111111client call_id[%s]\n", client_node->call_id);
-				if ((client_node->send_Iframe_flag == 0) && (frame_type == 1))
+				if ((client_node->iSendIframeFlag == 0) && (frame_type == 1))
 				{
-					client_node->send_Iframe_flag = 1;
+					client_node->iSendIframeFlag = 1;
 				}
 
-				if ((client_node->delete_flag == 0) && (client_node->send_Iframe_flag == 1))
+				if ((client_node->iDeleteFlag == 0) && (client_node->iSendIframeFlag == 1))
 				{
-					sendto(client_node->rtp_fd_video, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(client_node->udp_video.rtp_peer)), \
+					sendto(client_node->iUdpVideoFd, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(client_node->stUdpVideoInfo.rtp_peer)), \
 										(socklen_t)(sizeof(struct sockaddr_in)));
 				}
-				else if (client_node->delete_flag == 1)
+				else if (client_node->iDeleteFlag == 1)
 				{
 					printf("del client from list\n");
-					pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
-					list_delete(&(dev_node->client_node_head), client_node);
-					pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
+					pthread_mutex_lock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+					list_delete(&(p_stream_node->listClientNodeHead), client_node);
+					pthread_mutex_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 					free(client_node);
 					client_node = NULL;
 					printf("del client from list ok\n");

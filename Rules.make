@@ -8,7 +8,7 @@ CROSS_COMPILE :=
 EXEC = gb_stream_server_$(PLATFORM)_$(DATE)
 
 ##### Change the following for your environment:
-INCLUDES =  -I. -I$(PROJECT_DIR)/inc -I$(PROJECT_DIR)/inc/libevent
+INCLUDES =  -I. -I$(PROJECT_DIR)/inc -I$(PROJECT_DIR)/inc/libevent -I$(PROJECT_DIR)/inc/common
 
 COMPILE_OPTS = $(INCLUDES) -O2 -g
 

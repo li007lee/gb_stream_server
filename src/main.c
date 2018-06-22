@@ -11,10 +11,10 @@
 int main(int argc, char **argv)
 {
 //	signal(SIGPIPE, SIG_IGN);
-	sigset_t signal_mask;
-	sigemptyset(&signal_mask);
-	sigaddset(&signal_mask, SIGPIPE);
-	if (pthread_sigmask(SIG_BLOCK, &signal_mask, NULL) != 0)
+	sigset_t stSignalMask;
+	sigemptyset(&stSignalMask);
+	sigaddset(&stSignalMask, SIGPIPE);
+	if (pthread_sigmask(SIG_BLOCK, &stSignalMask, NULL) != 0)
 	{
 		TRACE_ERR("###### block sigpipe error!\n");
 

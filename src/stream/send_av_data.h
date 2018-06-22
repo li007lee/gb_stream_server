@@ -15,7 +15,7 @@
 
 //#include "rtsp/rtsp.h"
 #include "stpool/stpool.h"
-#include "../dev_hash.h"
+#include "../stream_hash.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // RTP方式发送数据时TCP头中的通道ID

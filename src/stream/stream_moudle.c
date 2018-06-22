@@ -15,8 +15,8 @@
 #include "event2/event_compat.h"
 
 #include "stream_moudle.h"
-#include "../common/common_args.h"
-#include "../dev_hash.h"
+#include "common_args.h"
+#include "../stream_hash.h"
 
 extern STREAM_HASH_TABLE_HANDLE stream_hash_table;
 extern struct bufferevent *sip_stream_msg_pair[2];
@@ -30,54 +30,54 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 
 	printf("recv recv from sip moudle!\n");
 
-	switch (sip_node.cmd_type)
+	switch (sip_node.enumCmdType)
 	{
 		case PLAY:
 		{
-			STREAM_NODE_HANDLE dev_node = InsertNodeToDevHashTable(stream_hash_table, &sip_node);
-			HB_S32 hash_value = dev_node->dev_node_hash_value;
-			pthread_mutex_lock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
+			STREAM_NODE_HANDLE p_stream_node = InsertNodeToStreamHashTable(stream_hash_table, &sip_node);
+			HB_S32 hash_value = p_stream_node->iStreamNodeHashValue;
+			pthread_mutex_lock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 			//查找客户节点
-			RTP_CLIENT_TRANSPORT_HANDLE client_node = FindClientNode(dev_node, sip_node.call_id);
+			RTP_CLIENT_TRANSPORT_HANDLE client_node = find_client_node(p_stream_node, sip_node.cCallId);
 			if (NULL == client_node)
 			{
 				client_node = (RTP_CLIENT_TRANSPORT_HANDLE) calloc(1, sizeof(RTP_CLIENT_TRANSPORT_OBJ));
-				strncpy(client_node->call_id, sip_node.call_id, sizeof(client_node->call_id));
-				client_node->udp_video.cli_ports.RTP = sip_node.push_port;
-				client_node->rtp_fd_video = socket(AF_INET, SOCK_DGRAM, 0);
-				if (client_node->rtp_fd_video < 0)
+				strncpy(client_node->cCallId, sip_node.cCallId, sizeof(client_node->cCallId));
+				client_node->stUdpVideoInfo.cli_ports.RTP = sip_node.iPushPort;
+				client_node->iUdpVideoFd = socket(AF_INET, SOCK_DGRAM, 0);
+				if (client_node->iUdpVideoFd < 0)
 				{
 					fprintf(stderr, "Socket Error:%s\n", strerror(errno));
 				}
 
-				bzero(&(client_node->udp_video.rtp_peer), sizeof(struct sockaddr_in));
-				client_node->udp_video.rtp_peer.sin_family = AF_INET;
+				bzero(&(client_node->stUdpVideoInfo.rtp_peer), sizeof(struct sockaddr_in));
+				client_node->stUdpVideoInfo.rtp_peer.sin_family = AF_INET;
 //						client_node->udp_video.rtp_peer.sin_addr.s_addr=htonl(sip_node->push_ip);
-				client_node->udp_video.rtp_peer.sin_port = htons(client_node->udp_video.cli_ports.RTP);
-				inet_aton(sip_node.push_ip, &(client_node->udp_video.rtp_peer.sin_addr));
-				printf("#######################append client  call_id:[%s]\n", sip_node.call_id);
-				list_append(&(dev_node->client_node_head), client_node);
+				client_node->stUdpVideoInfo.rtp_peer.sin_port = htons(client_node->stUdpVideoInfo.cli_ports.RTP);
+				inet_aton(sip_node.cPushIp, &(client_node->stUdpVideoInfo.rtp_peer.sin_addr));
+				printf("#######################append client  cCallId:[%s]\n", sip_node.cCallId);
+				list_append(&(p_stream_node->listClientNodeHead), client_node);
 			}
 
 //			printf("client ip[%s], port[%d]\n", htonl(client_node->udp_video.rtp_peer.sin_addr.s_addr), htons(client_node->udp_video.rtp_peer.sin_port));
-			play_rtsp_video_from_hbserver(dev_node);
-//			play_rtsp_video_from_box(dev_node);
-			pthread_mutex_unlock(&(stream_hash_table->stream_node_head[hash_value].stream_mutex));
+			play_rtsp_video_from_hbserver(p_stream_node);
+//			play_rtsp_video_from_box(p_stream_node);
+			pthread_mutex_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 			printf("succeed!\n");
 		}
 			break;
 		case STOP:
 		{
 			printf("\n*************************** recv del client from sip\n");
-			STREAM_NODE_HANDLE dev_node = FindDevFromDevHashTable(stream_hash_table, &sip_node);
-			if (NULL != dev_node)
+			STREAM_NODE_HANDLE p_stream_node = find_node_from_stream_hash_table(stream_hash_table, &sip_node);
+			if (NULL != p_stream_node)
 			{
-				printf("111111111111111111sip_node.call_id=[%s]\n", sip_node.call_id);
-				RTP_CLIENT_TRANSPORT_HANDLE client_node = FindClientNode(dev_node, sip_node.call_id);
+				printf("111111111111111111sip_node.cCallId=[%s]\n", sip_node.cCallId);
+				RTP_CLIENT_TRANSPORT_HANDLE client_node = find_client_node(p_stream_node, sip_node.cCallId);
 				if (NULL != client_node)
 				{
 					printf("del del del del del client !\n");
-					client_node->delete_flag = 1;
+					client_node->iDeleteFlag = 1;
 				}
 			}
 		}
