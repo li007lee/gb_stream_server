@@ -254,7 +254,127 @@ static HB_S32 set_rtp_pack1(rtp_info_t *rtp_info, HB_CHAR *ps_data_buf,
 	return 0 ;
 }
 
+#if 0
+HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
+{
+	HB_S32 addr_len = sizeof(struct sockaddr_in);
+	HB_S32 hash_value = p_stream_node->iStreamNodeHashValue;
+	HB_U32 left_bytes = 0;
+	HB_U32 cur_data_size = 0;
+	HB_U32 end_of_frame = 0;
+	HB_U32 rtp_size = 0;
+	HB_U32 nal_size = 0;
+	HB_S32 nalu_type = 0;
+	HB_CHAR *start_pos = NULL;
+	HB_CHAR *end_pos = NULL;
+	HB_CHAR *rtp_buf = NULL;
+	HB_CHAR tmp_sps_pps[128] = { 0 };
+	HB_CHAR sql[512] = { 0 };
+	rtp_info_t *rtp_info = NULL;
+	rtp_info = &(p_stream_node->stRtpSession.rtp_info_video);
+	start_pos = data_ptr + rtp_data_buf_pre_size;
+	left_bytes = data_size;
+	RTP_CLIENT_TRANSPORT_HANDLE client_node = NULL;
+	HB_S32 i = 0;
+	HB_S32 client_list_size = 0;
+	HB_S32 tmp_list_size = 0;
 
+	while(left_bytes > 3)
+	{
+		if(1 == frame_type) //I帧
+		{
+			//获取一个NALU
+			start_pos = get_NAL_from_frame(start_pos, left_bytes, &end_pos, &nalu_type);
+
+			//printf("\nMMMMMMMMMMMMMm  nalu_type=%d\n", nalu_type);
+#if 0
+			if(nalu_type < 1 || nalu_type > 9)
+			{
+				left_bytes = left_bytes-1;
+				start_pos = start_pos+1;
+				return HB_FAILURE;
+			}
+#endif
+			if (NULL == start_pos)
+			{
+				return HB_FAILURE;
+			}
+
+			left_bytes = data_size - (end_pos - frame);
+			nal_size = end_pos - start_pos;
+
+			if(7 == nalu_type) //SPS信息
+			{
+				nal_type=2;
+				if(0==mov->sps_len)//记录一次SPS
+				{
+					mov->sps_len=nal_size-3;
+					mov->sps=malloc(mov->sps_len);
+					memcpy(mov->sps,start_pos+3,mov->sps_len);
+				}
+			}
+			else if (8 == nalu_type)//PPS信息
+			{
+				nal_type=3;
+				if(0==mov->pps_len){		//记录一次PPS
+					mov->pps_len=nal_size-3;
+					mov->pps=malloc(mov->pps_len);
+					memcpy(mov->pps,start_pos+3,mov->pps_len);
+				}
+			}
+			else if (5 == nalu_type)//IDR帧信息
+			{
+				nal_size +=1;
+				start_pos = start_pos-1;
+				printf("\nPPPPPPPPPPPPPPP   size=%d\n",nal_size);
+				nal_type=1;
+			}
+
+			else if(6 == nalu_type)//SEI信息
+			{
+				nal_type=4;
+			}
+			else
+			{
+				nal_type=-1;
+			}
+
+		}
+		else //B、P帧
+		{
+			nal_type=0;
+			nal_size = frame_len;
+
+		}
+
+		one_node=(nal_list *)malloc(sizeof(struct nal_list));
+		one_node->nal_type=nal_type;
+		one_node->nal_offset=mov->mdat_size;
+		one_node->nal_size=nal_size;
+		one_node->next=NULL;
+
+		//one_node->nal_type!=2&&one_node->nal_type!=3&&one_node->nal_type!=4){
+		if(one_node->nal_type==1||one_node->nal_type==0)
+		{
+			nal_list_insert_end(one_node,mov);
+			put_h264_buffer(mov->mp4_fp,start_pos,nal_size);		//把数据输入mp4文件
+			mov->mdat_size+=nal_size;
+		}
+		if(0 == frame_type)
+		{
+			return HB_SUCCESS;
+		}
+		else
+		{
+			//更换起始地址，为下一次循环做准备
+			start_pos = end_pos;
+		}
+	}
+	return HB_SUCCESS;
+}
+#endif
+
+#if 1
 //返回当前节点中数据长度
 HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
 {
@@ -289,6 +409,7 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 		//RTP分包，从一个NALU数据中获取一包RTP数据
 		while ((rtp_buf = get_rtp_ps_pack(rtp_info, &rtp_size)) != NULL)
 		{
+
 //			printf("\n##@@@@@@  rtp_size=%d\n", rtp_size);
 //			HB_U8 tcp_buf[4] = { 0 };
 //			tcp_buf[0] = '$';
@@ -301,7 +422,7 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 			while (tmp_list_size)
 			{
 				client_node = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(p_stream_node->listClientNodeHead), i);
-//				printf("111111111111client call_id[%s]\n", client_node->call_id);
+//				printf("111111111111client call_id[%s]iSendIframeFlag=%d,client_node->iDeleteFlag=%d\n", client_node->cCallId, client_node->iSendIframeFlag, client_node->iDeleteFlag);
 				if ((client_node->iSendIframeFlag == 0) && (frame_type == 1))
 				{
 					client_node->iSendIframeFlag = 1;
@@ -309,8 +430,12 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 
 				if ((client_node->iDeleteFlag == 0) && (client_node->iSendIframeFlag == 1))
 				{
-					sendto(client_node->iUdpVideoFd, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(client_node->stUdpVideoInfo.rtp_peer)), \
-										(socklen_t)(sizeof(struct sockaddr_in)));
+//					if (client_node->iSendCount++ > 1000)
+//					{
+//						printf("00000000client call_id[%s]iSendIframeFlag=%d,client_node->iDeleteFlag=%d\n", client_node->cCallId, client_node->iSendIframeFlag, client_node->iDeleteFlag);
+//						client_node->iSendCount = 0;
+//					}
+					sendto(client_node->iUdpVideoFd, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(client_node->stUdpVideoInfo.rtp_peer)), (socklen_t)(sizeof(struct sockaddr_in)));
 				}
 				else if (client_node->iDeleteFlag == 1)
 				{
@@ -318,6 +443,8 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 					pthread_mutex_lock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 					list_delete(&(p_stream_node->listClientNodeHead), client_node);
 					pthread_mutex_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+					close(client_node->iUdpVideoFd);
+					client_node->iUdpVideoFd = -1;
 					free(client_node);
 					client_node = NULL;
 					printf("del client from list ok\n");
@@ -348,4 +475,4 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 
 	return cur_data_size;
 }
-
+#endif

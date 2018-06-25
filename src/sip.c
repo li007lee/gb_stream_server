@@ -452,6 +452,11 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 }
 
 
+static void timeout_cb(evutil_socket_t fd, short events, void *arg)
+{
+	printf("curtain time : %ld.\n", time(NULL));
+}
+
 /*
  * function : 启动sip模块
  *
@@ -510,7 +515,7 @@ HB_S32 start_sip_moudle()
 	bzero(&stListenAddr, sizeof(stListenAddr));
 	stListenAddr.sin_family = AF_INET;
 	stListenAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	stListenAddr.sin_port = htons(5060);
+	stListenAddr.sin_port = htons(5061);
 	pEventBase = event_base_new();
 	if (!pEventBase)
 	{
@@ -530,6 +535,48 @@ HB_S32 start_sip_moudle()
 		return HB_FAILURE;
 	}
 
+#if 0 //测试专用
+
+	int i;
+	struct event ev_time;
+    event_assign(&ev_time, pEventBase, -1, EV_PERSIST, timeout_cb, (void*)&ev_time);
+    struct timeval tv = {120, 0};
+    event_add(&ev_time, &tv);
+
+	for (i=0;i<100;++i)
+	{
+		STREAM_NODE_HANDLE pStreamNode = (STREAM_NODE_HANDLE)calloc(1, sizeof(STREAM_NODE_OBJ));
+		strncpy(pStreamNode->cDevId, "ydt-box-251227033954859-DS-2DC2204IW-D3%2fW20170528CCCH769439538", sizeof(pStreamNode->cDevId));
+		strncpy(pStreamNode->cDevIp, "172.16.1.250", sizeof(pStreamNode->cDevIp));
+		pStreamNode->iDevPort = 8109;
+		rtp_info_init(&(pStreamNode->stRtpSession.rtp_info_video), 96);
+		pStreamNode->pWorkBase = pEventBase;
+
+		list_init(&(pStreamNode->listClientNodeHead));
+
+		RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE) calloc(1, sizeof(RTP_CLIENT_TRANSPORT_OBJ));
+		client_node->stUdpVideoInfo.cli_ports.RTP = 10000+i;
+		client_node->iUdpVideoFd = socket(AF_INET, SOCK_DGRAM, 0);
+		if (client_node->iUdpVideoFd < 0)
+		{
+			fprintf(stderr, "Socket Error:%s\n", strerror(errno));
+		}
+
+		bzero(&(client_node->stUdpVideoInfo.rtp_peer), sizeof(struct sockaddr_in));
+		client_node->stUdpVideoInfo.rtp_peer.sin_family = AF_INET;
+		client_node->stUdpVideoInfo.rtp_peer.sin_port = htons(client_node->stUdpVideoInfo.cli_ports.RTP);
+		inet_aton("172.16.1.250", &(client_node->stUdpVideoInfo.rtp_peer.sin_addr));
+		list_append(&(pStreamNode->listClientNodeHead), client_node);
+
+		play_rtsp_video_from_box(pStreamNode);
+
+		usleep(100000);
+	}
+
+    event_base_dispatch(pEventBase);
+    event_base_free(pEventBase);
+#else
+
 	struct event udp_event;
 	event_assign(&udp_event, pEventBase, iUdpListenerSock, EV_READ | EV_PERSIST, udp_recv_cb, (void*) &udp_event);
 	event_add(&udp_event, 0);
@@ -542,6 +589,7 @@ HB_S32 start_sip_moudle()
 
 	event_base_dispatch(pEventBase);
 	event_base_free(pEventBase);
+#endif
 
 return HB_SUCCESS;
 }

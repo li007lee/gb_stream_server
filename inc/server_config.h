@@ -14,10 +14,10 @@
 #define CPU_NUMS (2)
 #define PRIVATE_SERVER_MODE 1   //私服模式 ，1-开启 ，0-关闭（不能与一点通服务模式同时开启）
 #define YDT_SERVER_MODE 0          //一点通服务模式，1-开启 ，0-关闭（不能与私服模式同时开启）
-//#define LOCAL_IP "172.16.3.100"
-#define LOCAL_IP "192.168.118.14"
-//#define RTSP_SERVER_ADDR "172.16.3.100"  //rtsp服务地址
-#define RTSP_SERVER_ADDR "192.168.118.14"  //rtsp服务地址
+#define LOCAL_IP "172.16.3.100"
+//#define LOCAL_IP "192.168.118.14"
+#define RTSP_SERVER_ADDR "172.16.3.100"  //rtsp服务地址
+//#define RTSP_SERVER_ADDR "192.168.118.14"  //rtsp服务地址
 #define RTSP_SERVER_PORT (8556)  //rtsp服务监听端口
 #define PROXY_RTSP_SERVER_PORT (8558)  //rtsp代理服务监听端口
 #define DATA_BASE_FILE "../../data/dev_manager.db" //数据库文件
@@ -31,8 +31,8 @@
 
 //以下是线程池的配置
 #define USE_PTHREAD_POOL  1    //是否启用线程池 0-关闭，1-启用
-#define MAX_THREADS    (11)   //线程数上限
-#define MIN_THREADS     (10)     //最小启动线程数
+#define MAX_THREADS    (2500)   //线程数上限
+#define MIN_THREADS     (500)     //最小启动线程数
 
 
 //以下是日志和调试的配置

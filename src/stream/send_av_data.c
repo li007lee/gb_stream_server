@@ -120,17 +120,22 @@ static HB_S32 destroy_client_rtp_list(list_t *listClientNodeHead)
 		rtp_client_node = list_get_at(listClientNodeHead, 0);
 		list_delete(listClientNodeHead, rtp_client_node);
 //		list_delete_at(listClientNodeHead, 0);
-//		if (rtp_client_node->pSendStreamBev != NULL)
-//		{
-//			//bufferevent_disable(rtp_client_node->bev, EV_READ|EV_WRITE);
-//			bufferevent_free(rtp_client_node->pSendStreamBev);
-//			rtp_client_node->pSendStreamBev = NULL;
-//		}
-//		if (rtp_client_node->hEventArgs != NULL)
-//		{
-//			free(rtp_client_node->hEventArgs);
-//			rtp_client_node->hEventArgs = NULL;
-//		}
+		if (rtp_client_node->pSendStreamBev != NULL)
+		{
+			//bufferevent_disable(rtp_client_node->bev, EV_READ|EV_WRITE);
+			bufferevent_free(rtp_client_node->pSendStreamBev);
+			rtp_client_node->pSendStreamBev = NULL;
+		}
+		if (rtp_client_node->hEventArgs != NULL)
+		{
+			free(rtp_client_node->hEventArgs);
+			rtp_client_node->hEventArgs = NULL;
+		}
+		if (rtp_client_node->iUdpVideoFd > 0)
+		{
+			close(rtp_client_node->iUdpVideoFd);
+			rtp_client_node->iUdpVideoFd = -1;
+		}
 		free(rtp_client_node);
 		rtp_client_node = NULL;
 		rtp_client_nums--;
@@ -507,6 +512,7 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 	}
 
 ERR:
+	TRACE_ERR("000###################send rtp data thread exit [ret = %d]####################\n", ret);
 	free(p_ps_data);
 	p_ps_data = NULL;
 	if (2 == p_stream_node->uRtpClientNodeSendDataThreadFlag) //rtp发送线程先出现异常
@@ -516,7 +522,7 @@ ERR:
 			usleep(5000);
 		}
 	}
-
+	TRACE_ERR("111###################send rtp data thread exit [ret = %d]####################\n", ret);
 	del_node_from_stream_hash_table(stream_hash_table, p_stream_node);
 	delete_rtp_data_list(p_stream_node->queueStreamData);
 	nolock_queue_destroy(&(p_stream_node->queueStreamData));
@@ -530,7 +536,7 @@ ERR:
 	free(p_stream_node);
 	p_stream_node = NULL;
 	send_rtp_to_client_task_err_cb(ptsk, 0);
-	TRACE_ERR("###################send rtp data thread exit [ret = %d]####################\n", ret);
+	TRACE_ERR("222###################send rtp data thread exit [ret = %d]####################\n", ret);
 
 	return;
 }

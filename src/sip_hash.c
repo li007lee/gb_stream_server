@@ -66,9 +66,9 @@ SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pSipHashTabl
 
 SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, SIP_DEV_ARGS_HANDLE pSipDevInfo)
 {
-	printf("\nFFFFFFFFFF  FindNodeFromSipHashTable call_id=[%s], uHashTableLen=[%d]\n", pSipDevInfo->call_id, pHashTable->uHashTableLen);
+	printf("\nFFFFFFFFFF  find_node_from_sip_hash_table call_id=[%s], uHashTableLen=[%d]\n", pSipDevInfo->call_id, pHashTable->uHashTableLen);
 	HB_U32 uHashValue = pHashFunc(pSipDevInfo->call_id) % pHashTable->uHashTableLen;
-	printf("mHashValue=%u\n", uHashValue);
+	printf("uHashValue=%u\n", uHashValue);
 
 	SIP_NODE_HANDLE pSipNode = NULL;
 
@@ -95,13 +95,13 @@ SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, 
 
 HB_VOID del_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE pSipNode)
 {
-	printf("\nFFFFFFFFFF  FindNodeFromSipHashTable call_id=[%s], uHashTableLen=[%d]\n", pSipNode->cCallId, pHashTable->uHashTableLen);
-	HB_U32 mHashValue = pSipNode->iSipNodeHashValue;
-	printf("mHashValue=%u\n", mHashValue);
+	printf("\nFFFFFFFFFF  del_node_from_sip_hash_table call_id=[%s], uHashTableLen=[%d]\n", pSipNode->cCallId, pHashTable->uHashTableLen);
+	HB_U32 uHashValue = pSipNode->iSipNodeHashValue;
+	printf("uHashValue=%u\n", uHashValue);
 
-	pthread_mutex_lock(&(pHashTable->pSipHashNodeHead[mHashValue].lockSipNodeMutex));
-	list_delete(&(pHashTable->pSipHashNodeHead[mHashValue].listSipNodeHead), pSipNode);
-	pthread_mutex_unlock(&(pHashTable->pSipHashNodeHead[mHashValue].lockSipNodeMutex));
+	pthread_mutex_lock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
+	list_delete(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), pSipNode);
+	pthread_mutex_unlock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	return;
 }
 

@@ -118,27 +118,34 @@ static HB_VOID delete_rtp_data_list(lf_queue queue)
 static HB_S32 destroy_client_rtp_list(list_t *listClientNodeHead)
 {
 	HB_S32 rtp_client_nums = 0;
-	HB_CHAR *rtp_client_node = NULL;
+	RTP_CLIENT_TRANSPORT_HANDLE client_node = NULL;
 	rtp_client_nums = list_size(listClientNodeHead);
 	while(rtp_client_nums)
 	{
-		rtp_client_node = list_get_at(listClientNodeHead, 0);
-		RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE)rtp_client_node;
+		client_node = list_get_at(listClientNodeHead, 0);
+		list_delete(listClientNodeHead, client_node);
 		if(client_node->pSendStreamBev != NULL)
 		{
 			bufferevent_disable(client_node->pSendStreamBev, EV_READ|EV_WRITE);
 			bufferevent_free(client_node->pSendStreamBev);
 			client_node->pSendStreamBev = NULL;
 		}
-//		if(client_node->hEventArgs != NULL)
-//		{
-//			free(client_node->hEventArgs);
-//			client_node->hEventArgs = NULL;
-//		}
-		list_delete(listClientNodeHead, rtp_client_node);
+		if(client_node->hEventArgs != NULL)
+		{
+			free(client_node->hEventArgs);
+			client_node->hEventArgs = NULL;
+		}
+		if (client_node->iUdpVideoFd > 0)
+		{
+			close(client_node->iUdpVideoFd);
+			client_node->iUdpVideoFd = -1;
+		}
+
 		free(client_node);
+		client_node = NULL;
 		rtp_client_nums--;
 	}
+	list_destroy(listClientNodeHead);
 	return 0;
 }
 
@@ -816,7 +823,6 @@ static HB_VOID get_box_stream_task(struct sttask *ptsk)
 	list_remove(&(stream_hash_table->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
 	pthread_mutex_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 	destroy_client_rtp_list(&(p_stream_node->listClientNodeHead));//释放rtp客户队列
-	list_destroy(&(p_stream_node->listClientNodeHead));
 	free(p_stream_node);
 	p_stream_node=NULL;
 
@@ -824,17 +830,17 @@ static HB_VOID get_box_stream_task(struct sttask *ptsk)
 }
 
 
-HB_S32 play_rtsp_video_from_box(STREAM_NODE_HANDLE p_stream_node)
+HB_S32 play_rtsp_video_from_box(STREAM_NODE_HANDLE pStreamNode)
 {
-	if (1 == p_stream_node->uRtspPlayFlag)
+	if (1 == pStreamNode->uRtspPlayFlag)
 	{
 		return HB_FAILURE;
 	}
 
 #if USE_PTHREAD_POOL
-	struct sttask *ptsk;
-	ptsk = stpool_task_new(gb_thread_pool, "get_box_stream_task", get_box_stream_task, NULL, p_stream_node);
-	HB_S32 error = stpool_task_set_p(ptsk, gb_thread_pool);
+	struct sttask *pTask;
+	pTask = stpool_task_new(gb_thread_pool, "get_box_stream_task", get_box_stream_task, NULL, pStreamNode);
+	HB_S32 error = stpool_task_set_p(pTask, gb_thread_pool);
 	if (error)
 	{
 		printf("***Err: %d(%s). (try eCAP_F_CUSTOM_TASK)\n", error, stpool_strerror(error));
@@ -842,9 +848,9 @@ HB_S32 play_rtsp_video_from_box(STREAM_NODE_HANDLE p_stream_node)
 	}
 	else
 	{
-		stpool_task_set_userflags(ptsk, 0x1);
-		stpool_task_queue(ptsk);
-		p_stream_node->uRtspPlayFlag = 1; //rtsp播放功能已启动
+		stpool_task_set_userflags(pTask, 0x1);
+		stpool_task_queue(pTask);
+		pStreamNode->uRtspPlayFlag = 1; //rtsp播放功能已启动
 	}
 
 #else

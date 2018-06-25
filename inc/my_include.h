@@ -97,20 +97,6 @@ typedef enum _tagHB_BOOL
 #define TRUE    1
 #define FALSE   0
 
-#define USER_TIMEOUT 30
-#define BOX_SERVER_PORT 8109
-#define LIBEVENT_WRITE_BUF_SIZE		(2097152) //20M
-//#define LIBEVENT_WRITE_BUF_SIZE		(1048576) //1M
-
-//#define LOCAL_IP "172.16.3.100"
-#define ETH_X	"eth0"
-#define DEV_DATA_BASE_NAME "/home/default/TM_X01_Data.db"
-//#define DEV_DATA_BASE_NAME "../data/TM_X01_Data.db"
-//#define HAND_SERVER_IP
-
-//#define DEV_DATA_BASE_NAME "../data/dev_manager.db"
-//#define AUTHENTICATE  ture
-
 #define DEBUG
 #ifdef DEBUG
 #define COLOR_STR_NONE          "\033[0m"

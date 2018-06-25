@@ -148,11 +148,16 @@ static HB_S32 destroy_client_rtp_list(list_t *listClientNodeHead)
 			free(rtp_client_node->hEventArgs);
 			rtp_client_node->hEventArgs = NULL;
 		}
+		if (rtp_client_node->iUdpVideoFd > 0)
+		{
+			close(rtp_client_node->iUdpVideoFd);
+			rtp_client_node->iUdpVideoFd = -1;
+		}
 		free(rtp_client_node);
 		rtp_client_node = NULL;
 		rtp_client_nums--;
 	}
-//	list_destroy(listClientNodeHead);
+	list_destroy(listClientNodeHead);
 	return 0;
 }
 

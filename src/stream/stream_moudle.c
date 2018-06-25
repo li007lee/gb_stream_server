@@ -60,8 +60,8 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 			}
 
 //			printf("client ip[%s], port[%d]\n", htonl(client_node->udp_video.rtp_peer.sin_addr.s_addr), htons(client_node->udp_video.rtp_peer.sin_port));
-			play_rtsp_video_from_hbserver(p_stream_node);
-//			play_rtsp_video_from_box(p_stream_node);
+//			play_rtsp_video_from_hbserver(p_stream_node);
+			play_rtsp_video_from_box(p_stream_node);
 			pthread_mutex_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 			printf("succeed!\n");
 		}
