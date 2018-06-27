@@ -9,7 +9,7 @@
 
 #include "../stream_hash.h"
 
-extern STREAM_HASH_TABLE_HANDLE stream_hash_table;
+extern STREAM_HASH_TABLE_HANDLE glStreamHashTable;
 
 ////////////////////////////////////////////////////////////////////////////////
 // 函数名：rtsp_random
@@ -376,7 +376,7 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 
 #if 1
 //返回当前节点中数据长度
-HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
+HB_U32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
 {
 	HB_S32 addr_len = sizeof(struct sockaddr_in);
 	HB_S32 hash_value = p_stream_node->iStreamNodeHashValue;
@@ -440,9 +440,9 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 				else if (client_node->iDeleteFlag == 1)
 				{
 					printf("del client from list\n");
-					pthread_mutex_lock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+					pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 					list_delete(&(p_stream_node->listClientNodeHead), client_node);
-					pthread_mutex_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+					pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 					close(client_node->iUdpVideoFd);
 					client_node->iUdpVideoFd = -1;
 					free(client_node);

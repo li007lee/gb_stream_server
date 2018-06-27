@@ -28,7 +28,12 @@ typedef enum _tagCHANNEL_ID
     AUDIO_RTCP     //RTCP音频通道ID
 }CHANNEL_ID_E;
 
-
+typedef struct _tagQUEUE_ARGS
+{
+	HB_S32   data_pre_buf_size;
+	HB_S32   data_len;
+	HB_CHAR  *data_buf;
+}QUEUE_ARGS_OBJ, *QUEUE_ARGS_HANDLE;
 
 ////////////////////////////////////////////////////////////////////////////////
 // 函数名：send_data_over_udp
@@ -44,7 +49,7 @@ int send_data_over_udp(HB_S32 fd, struct sockaddr *rtp_peer,
 	char *rtp_buf, unsigned int rtp_size);
 
 
-HB_VOID send_rtp_to_client_task_err_cb(struct sttask *ptask, long reasons);
+HB_VOID send_rtp_to_client_task_err_cb(struct sttask *ptask, long iReasons);
 
 
 HB_VOID *send_rtp_to_client_thread(HB_VOID *param);

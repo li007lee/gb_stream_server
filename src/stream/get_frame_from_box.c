@@ -13,9 +13,8 @@
 #include "net_api.h"
 #include "hash_table.h"
 #include "lf_queue.h"
-#include "common_args.h"
 
-extern STREAM_HASH_TABLE_HANDLE stream_hash_table;
+extern STREAM_HASH_TABLE_HANDLE glStreamHashTable;
 extern stpool_t *gb_thread_pool;
 
 static HB_S32 parse_sdp_info(STREAM_NODE_HANDLE rtsp_node, HB_CHAR *sdp_json)
@@ -203,9 +202,9 @@ static HB_VOID client_event_cb(struct bufferevent *get_push_stream_bev, HB_S16 e
 	if(0 == p_stream_node->uRtpClientNodeSendDataThreadFlag)//rtp发送线程还未启动
 	{
 		TRACE_ERR("recv_stream_cb()   uRtpClientNodeSendDataThreadFlag = 0");
-		pthread_mutex_lock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
-		list_remove(&(stream_hash_table->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
-		pthread_mutex_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+		list_remove(&(glStreamHashTable->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
+		pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 		destroy_client_rtp_list(&(p_stream_node->listClientNodeHead));//释放rtp客户队列
 		delete_rtp_data_list(p_stream_node->queueStreamData);//释放视频队列
 		nolock_queue_destroy(&(p_stream_node->queueStreamData));
@@ -222,20 +221,20 @@ static HB_VOID client_event_cb(struct bufferevent *get_push_stream_bev, HB_S16 e
 	else if(1 == p_stream_node->uRtpClientNodeSendDataThreadFlag)//如果rtp节点发送线程已经启动,这里只是把节点摘除，并不释放，由rtp发送线程释放
 	{
 		TRACE_ERR("recv_stream_cb()   uRtpClientNodeSendDataThreadFlag = 1");
-		pthread_mutex_lock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 		disable_client_rtp_list_bev(&(p_stream_node->listClientNodeHead));
-		list_remove(&(stream_hash_table->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
-		pthread_mutex_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+		list_remove(&(glStreamHashTable->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
+		pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 		p_stream_node->uGetStreamThreadStartFlag = 2;//接受数据流模块已退出
 		return;
 	}
 	else if(2 == p_stream_node->uRtpClientNodeSendDataThreadFlag) //rtp发送线程启动后，异常标志置位,这里只置位接收模块标志，摘除释放工作由rtp发送线程执行
 	{
 		TRACE_ERR("recv_stream_cb()   uRtpClientNodeSendDataThreadFlag = 2");
-		pthread_mutex_lock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 		disable_client_rtp_list_bev(&(p_stream_node->listClientNodeHead));
-		list_remove(&(stream_hash_table->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
-		pthread_mutex_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+		list_remove(&(glStreamHashTable->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
+		pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 		p_stream_node->uGetStreamThreadStartFlag = 2;//接受数据流模块已退出
 	}
 	return;
@@ -295,9 +294,9 @@ static HB_VOID client_read_cb(struct bufferevent *get_push_stream_bev, HB_VOID *
 			pthread_t data_send_pthread_id;
 			if(pthread_create(&data_send_pthread_id, NULL, send_rtp_to_client_thread, (HB_VOID *)pth_args) != 0)
 			{
-				pthread_rwlock_wrlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].dev_mutex));
+				pthread_rwlock_wrlock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].dev_mutex));
 
-				pthread_rwlock_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].dev_mutex));
+				pthread_rwlock_unlock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].dev_mutex));
 				return;
 			}
 			else
@@ -338,9 +337,9 @@ static HB_VOID client_read_cb(struct bufferevent *get_push_stream_bev, HB_VOID *
 	if(0 == p_stream_node->uRtpClientNodeSendDataThreadFlag)//rtp发送线程还未启动
 	{
 		TRACE_ERR("recv_stream_cb()   uRtpClientNodeSendDataThreadFlag = 0");
-		pthread_mutex_lock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
-		list_remove(&(stream_hash_table->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
-		pthread_mutex_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+		list_remove(&(glStreamHashTable->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
+		pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 		destroy_client_rtp_list(&(p_stream_node->listClientNodeHead));//释放rtp客户队列
 		delete_rtp_data_list(p_stream_node->queueStreamData);//释放视频队列
 		nolock_queue_destroy(&(p_stream_node->queueStreamData));
@@ -357,10 +356,10 @@ static HB_VOID client_read_cb(struct bufferevent *get_push_stream_bev, HB_VOID *
 	else if((1 == p_stream_node->uRtpClientNodeSendDataThreadFlag) || (2 == p_stream_node->uRtpClientNodeSendDataThreadFlag))//如果rtp节点发送线程已经启动,这里只是把节点摘除，并不释放，由rtp发送线程释放
 	{
 		TRACE_ERR("recv_stream_cb()   uRtpClientNodeSendDataThreadFlag = %d\n", p_stream_node->uRtpClientNodeSendDataThreadFlag);
-		pthread_mutex_lock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 		disable_client_rtp_list_bev(&(p_stream_node->listClientNodeHead));
-		list_remove(&(stream_hash_table->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
-		pthread_mutex_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+		list_remove(&(glStreamHashTable->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
+		pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 		p_stream_node->uGetStreamThreadStartFlag = 2;//接受数据流模块已退出
 		return;
 	}
@@ -679,9 +678,9 @@ static HB_VOID *get_box_stream_thread(HB_VOID *args)
 
 	HB_S32 hash_value = 0;
 	hash_value = p_stream_node->iStreamNodeHashValue;
-	pthread_mutex_lock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
-	list_remove(&(stream_hash_table->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
-	pthread_mutex_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+	pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+	list_remove(&(glStreamHashTable->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
+	pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 	destroy_client_rtp_list(&(p_stream_node->listClientNodeHead));//释放rtp客户队列
 	list_destroy(&(p_stream_node->listClientNodeHead));
 	free(p_stream_node);
@@ -819,9 +818,9 @@ static HB_VOID get_box_stream_task(struct sttask *ptsk)
 
 	//从汉邦服务器或者盒子获取流的线程还没有启动,所有节点资源在这里直接释放
 	printf("\nbbb\n");
-	pthread_mutex_lock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
-	list_remove(&(stream_hash_table->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
-	pthread_mutex_unlock(&(stream_hash_table->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+	pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
+	list_remove(&(glStreamHashTable->pStreamHashNodeHead[hash_value].listStreamNodeHead), (HB_VOID*)p_stream_node);
+	pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 	destroy_client_rtp_list(&(p_stream_node->listClientNodeHead));//释放rtp客户队列
 	free(p_stream_node);
 	p_stream_node=NULL;

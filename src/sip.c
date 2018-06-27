@@ -16,10 +16,8 @@
 #include "stream/stream_moudle.h"
 
 SIP_HASH_TABLE_HANDLE glSipHashTable = NULL;
-STREAM_HASH_TABLE_HANDLE stream_hash_table = NULL;
+STREAM_HASH_TABLE_HANDLE glStreamHashTable = NULL;
 struct bufferevent *sip_stream_msg_pair[2];
-
-
 struct event_base *pEventBase;
 stpool_t *gb_thread_pool;
 
@@ -175,7 +173,7 @@ static HB_S32 build_response_default(osip_message_t ** dest, osip_dialog_t * dia
 }
 
 
-static HB_S32 parase_invite(osip_message_t ** pSipMsg, SIP_DEV_ARGS_HANDLE sip_dev_info)
+static HB_S32 parase_invite(osip_message_t ** pSipMsg, SIP_DEV_ARGS_HANDLE pSipDevInfo)
 {
 	osip_body_t *pBody = NULL;
 	osip_message_get_body(*pSipMsg, 0, &pBody);
@@ -215,20 +213,20 @@ static HB_S32 parase_invite(osip_message_t ** pSipMsg, SIP_DEV_ARGS_HANDLE sip_d
 	}
 	sdp_origin_get(pSdp, (const HB_CHAR **)&pUserName, (const HB_CHAR **)&pSession, (const HB_CHAR **)&pVersion, (const HB_CHAR **)&pNetwork, (const HB_CHAR **)&pAddrType, (const HB_CHAR **)&pAddress);
 
-	strncpy(sip_dev_info->st_sip_dev_id, pUserName, sizeof(sip_dev_info->st_sip_dev_id));
-	strncpy(sip_dev_info->st_push_ip, pAddress, sizeof(sip_dev_info->st_push_ip));
+	strncpy(pSipDevInfo->cDevSn, pUserName, sizeof(pSipDevInfo->cDevSn));
+	strncpy(pSipDevInfo->cPushIp, pAddress, sizeof(pSipDevInfo->cPushIp));
 
 	const HB_CHAR *ssrc = sdp_y_get(pSdp);
 	if (NULL != ssrc)
 	{
-		strncpy(sip_dev_info->st_y, ssrc, sizeof(sip_dev_info->st_y));
+		strncpy(pSipDevInfo->cSsrc, ssrc, sizeof(pSipDevInfo->cSsrc));
 	}
 
 	osip_call_id_t *pCallId = osip_message_get_call_id(*pSipMsg);
 	if (NULL != pCallId)
 	{
 //		printf("call_id:[%s]\n", call_id->number);
-		strncpy(sip_dev_info->call_id, pCallId->number, sizeof(sip_dev_info->call_id));
+		strncpy(pSipDevInfo->cCallId, pCallId->number, sizeof(pSipDevInfo->cCallId));
 	}
 
 	for (i = 0; i < iMediaCount; i++)
@@ -236,31 +234,31 @@ static HB_S32 parase_invite(osip_message_t ** pSipMsg, SIP_DEV_ARGS_HANDLE sip_d
 		pMediaType = sdp_media_type(pSdp, i);
 		if (!strcmp(pMediaType, "video"))
 		{
-			HB_S32 push_port = 0;
-			HB_S32 num = 0;
-			sdp_media_port(pSdp, i, &push_port, &num);
-			sip_dev_info->st_push_port = push_port;
+			HB_S32 iPushPort = 0;
+			HB_S32 iNum = 0;
+			sdp_media_port(pSdp, i, &iPushPort, &iNum);
+			pSipDevInfo->iPushPort = iPushPort;
 
-			HB_CHAR *video_stream_server_info = NULL;
-			HB_CHAR p_stream_port[8] = { 0 };
-			video_stream_server_info = sdp_media_attribute_find(pSdp, i, "sms");
-			if(NULL != video_stream_server_info)
+			HB_CHAR *pVideoStreamSourceInfo = NULL;
+			HB_CHAR cStreamSourcePort[8] = { 0 };
+			pVideoStreamSourceInfo = sdp_media_attribute_find(pSdp, i, "sms");
+			if(NULL != pVideoStreamSourceInfo)
 			{
-				sscanf(video_stream_server_info, "%[^:]:%[^/]/%s", sip_dev_info->st_stram_server_ip, p_stream_port, sip_dev_info->st_dev_id);
-				sip_dev_info->st_stream_server_port = atoi(p_stream_port);
+				sscanf(pVideoStreamSourceInfo, "%[^:]:%[^/]/%s", pSipDevInfo->cStreamSourceIp, cStreamSourcePort, pSipDevInfo->cDevId);
+				pSipDevInfo->iStreamSourcePort = atoi(cStreamSourcePort);
 			}
 
-			HB_CHAR *video_stream_type = NULL;
-			video_stream_type = sdp_media_attribute_find(pSdp, i, "streamMode");
-			if ((NULL != video_stream_type) && (NULL != strstr(video_stream_type, "SUB")))
+			HB_CHAR *pVideoStreamType = NULL;
+			pVideoStreamType = sdp_media_attribute_find(pSdp, i, "streamMode");
+			if ((NULL != pVideoStreamType) && (NULL != strstr(pVideoStreamType, "SUB")))
 			{
 				//子码流
-				sip_dev_info->st_stream_type = 1;
+				pSipDevInfo->iStreamType = 1;
 			}
 			else
 			{
 				//默认主码流
-				sip_dev_info->st_stream_type = 0;
+				pSipDevInfo->iStreamType = 0;
 			}
 		}
 	}
@@ -280,7 +278,7 @@ static HB_S32 parase_ack_bye(osip_message_t *pSipMsg, SIP_DEV_ARGS_HANDLE pSipDe
 	if (NULL != pCallId)
 	{
 		printf("call id:[%s]\n", pCallId->number);
-		strncpy(pSipDevInfo->call_id, pCallId->number, sizeof(pSipDevInfo->call_id));
+		strncpy(pSipDevInfo->cCallId, pCallId->number, sizeof(pSipDevInfo->cCallId));
 	}
 	else
 	{
@@ -452,7 +450,7 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 }
 
 
-static void timeout_cb(evutil_socket_t fd, short events, void *arg)
+static void timeout_cb(evutil_socket_t iSockFd, HB_S16 iEvents, HB_HANDLE hArg)
 {
 	printf("curtain time : %ld.\n", time(NULL));
 }
@@ -478,8 +476,8 @@ HB_S32 start_sip_moudle()
 		return HB_FAILURE;
 	}
 
-	stream_hash_table = stream_hash_table_create(1000); //创建哈希表
-	if (NULL == stream_hash_table)
+	glStreamHashTable = stream_hash_table_create(1000); //创建哈希表
+	if (NULL == glStreamHashTable)
 	{
 		TRACE_ERR("###### HashTableCreate() err!");
 		return HB_FAILURE;
@@ -538,10 +536,10 @@ HB_S32 start_sip_moudle()
 #if 0 //测试专用
 
 	int i;
-	struct event ev_time;
-    event_assign(&ev_time, pEventBase, -1, EV_PERSIST, timeout_cb, (void*)&ev_time);
+	struct event evTimer;
+    event_assign(&evTimer, pEventBase, -1, EV_PERSIST, timeout_cb, (HB_HANDLE)&evTimer);
     struct timeval tv = {120, 0};
-    event_add(&ev_time, &tv);
+    event_add(&evTimer, &tv);
 
 	for (i=0;i<100;++i)
 	{
@@ -554,7 +552,7 @@ HB_S32 start_sip_moudle()
 
 		list_init(&(pStreamNode->listClientNodeHead));
 
-		RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE) calloc(1, sizeof(RTP_CLIENT_TRANSPORT_OBJ));
+		RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE)calloc(1, sizeof(RTP_CLIENT_TRANSPORT_OBJ));
 		client_node->stUdpVideoInfo.cli_ports.RTP = 10000+i;
 		client_node->iUdpVideoFd = socket(AF_INET, SOCK_DGRAM, 0);
 		if (client_node->iUdpVideoFd < 0)
@@ -577,9 +575,9 @@ HB_S32 start_sip_moudle()
     event_base_free(pEventBase);
 #else
 
-	struct event udp_event;
-	event_assign(&udp_event, pEventBase, iUdpListenerSock, EV_READ | EV_PERSIST, udp_recv_cb, (void*) &udp_event);
-	event_add(&udp_event, 0);
+	struct event evUdpEvent;
+	event_assign(&evUdpEvent, pEventBase, iUdpListenerSock, EV_READ | EV_PERSIST, udp_recv_cb, (HB_HANDLE) &evUdpEvent);
+	event_add(&evUdpEvent, 0);
 
 	bufferevent_pair_new(pEventBase, BEV_OPT_CLOSE_ON_FREE, sip_stream_msg_pair);
 	bufferevent_setcb(sip_stream_msg_pair[1], stream_read_cb, NULL, NULL, NULL);

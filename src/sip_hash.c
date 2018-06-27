@@ -7,7 +7,6 @@
 
 #include "sip_hash.h"
 
-#include "common_args.h"
 #include "hash_table.h"
 
 static HB_S32 find_call_id(const HB_VOID *el, const HB_VOID *key)
@@ -32,30 +31,30 @@ static HB_S32 find_call_id(const HB_VOID *el, const HB_VOID *key)
 
 SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pSipHashTable, SIP_DEV_ARGS_HANDLE pSipDevInfo)
 {
-	printf("\nIIIIIIIIIIII  InsertNodeToSipHashTable dev_id=[%s], call_id=[%s], uHashTableLen=[%d]\n", pSipDevInfo->st_sip_dev_id, pSipDevInfo->call_id, pSipHashTable->uHashTableLen);
-	HB_U32 uHashValue = pHashFunc(pSipDevInfo->call_id) % pSipHashTable->uHashTableLen;
+	printf("\nIIIIIIIIIIII  InsertNodeToSipHashTable dev_id=[%s], call_id=[%s], uHashTableLen=[%d]\n", pSipDevInfo->cDevSn, pSipDevInfo->cCallId, pSipHashTable->uHashTableLen);
+	HB_U32 uHashValue = pHashFunc(pSipDevInfo->cCallId) % pSipHashTable->uHashTableLen;
 	SIP_NODE_HANDLE pSipNode = NULL;
 
 	pthread_mutex_lock(&(pSipHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	list_attributes_seeker(&(pSipHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), find_call_id);
-	pSipNode = list_seek(&(pSipHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), pSipDevInfo->call_id);
+	pSipNode = list_seek(&(pSipHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), pSipDevInfo->cCallId);
 	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
 	if(NULL == pSipNode)
 	{
 		//当前申请的设备不存在（说明是新的设备）
 		//如果当前节点不存在设备，直接插入连表（说明是新设备）
 		pSipNode = (SIP_NODE_HANDLE)calloc(1, sizeof(SIP_NODE_OBJ));
-		strncpy(pSipNode->cSipDevSn, pSipDevInfo->st_sip_dev_id, sizeof(pSipNode->cSipDevSn));
-		strncpy(pSipNode->cDevId, pSipDevInfo->st_dev_id, sizeof(pSipNode->cDevId));
-		strncpy(pSipNode->cCallId, pSipDevInfo->call_id, sizeof(pSipNode->cCallId));
-		strncpy(pSipNode->cStreamServerIp, pSipDevInfo->st_stram_server_ip, sizeof(pSipNode->cStreamServerIp));
-		pSipNode->iStreamServerPort = pSipDevInfo->st_stream_server_port;
-		pSipNode->iDevChnl = pSipDevInfo->st_dev_chnl;
-		pSipNode->iStreamType = pSipDevInfo->st_stream_type;
-		strncpy(pSipNode->cPushIp, pSipDevInfo->st_push_ip, sizeof(pSipNode->cPushIp));
-		pSipNode->iPushPort = pSipDevInfo->st_push_port;
+		strncpy(pSipNode->cSipDevSn, pSipDevInfo->cDevSn, sizeof(pSipNode->cSipDevSn));
+		strncpy(pSipNode->cDevId, pSipDevInfo->cDevId, sizeof(pSipNode->cDevId));
+		strncpy(pSipNode->cCallId, pSipDevInfo->cCallId, sizeof(pSipNode->cCallId));
+		strncpy(pSipNode->cStreamSourceIp, pSipDevInfo->cStreamSourceIp, sizeof(pSipNode->cStreamSourceIp));
+		pSipNode->iStreamSourcePort = pSipDevInfo->iStreamSourcePort;
+		pSipNode->iDevChnl = pSipDevInfo->iDevChnl;
+		pSipNode->iStreamType = pSipDevInfo->iStreamType;
+		strncpy(pSipNode->cPushIp, pSipDevInfo->cPushIp, sizeof(pSipNode->cPushIp));
+		pSipNode->iPushPort = pSipDevInfo->iPushPort;
 		pSipNode->iSipNodeHashValue = uHashValue;
-		strncpy(pSipNode->cSsrc, pSipDevInfo->st_y, sizeof(pSipNode->cSsrc));
+		strncpy(pSipNode->cSsrc, pSipDevInfo->cSsrc, sizeof(pSipNode->cSsrc));
 		list_append(&(pSipHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), (HB_VOID*)pSipNode);
 
 	}
@@ -66,15 +65,15 @@ SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pSipHashTabl
 
 SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, SIP_DEV_ARGS_HANDLE pSipDevInfo)
 {
-	printf("\nFFFFFFFFFF  find_node_from_sip_hash_table call_id=[%s], uHashTableLen=[%d]\n", pSipDevInfo->call_id, pHashTable->uHashTableLen);
-	HB_U32 uHashValue = pHashFunc(pSipDevInfo->call_id) % pHashTable->uHashTableLen;
+	printf("\nFFFFFFFFFF  find_node_from_sip_hash_table call_id=[%s], uHashTableLen=[%d]\n", pSipDevInfo->cCallId, pHashTable->uHashTableLen);
+	HB_U32 uHashValue = pHashFunc(pSipDevInfo->cCallId) % pHashTable->uHashTableLen;
 	printf("uHashValue=%u\n", uHashValue);
 
 	SIP_NODE_HANDLE pSipNode = NULL;
 
 	pthread_mutex_lock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	list_attributes_seeker(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), find_call_id);
-	pSipNode = list_seek(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), pSipDevInfo->call_id);
+	pSipNode = list_seek(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), pSipDevInfo->cCallId);
 	pthread_mutex_unlock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
 	if(NULL != pSipNode)
@@ -84,7 +83,7 @@ SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, 
 	else
 	{
 		//当前申请的设备不存在
-		printf("do not found call id:[%s]!\n", pSipDevInfo->call_id);
+		printf("do not found call id:[%s]!\n", pSipDevInfo->cCallId);
 	}
 
 

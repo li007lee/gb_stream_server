@@ -10,7 +10,6 @@
 
 #include "my_include.h"
 #include "simclist.h"
-#include "common_args.h"
 
 #include "event2/event.h"
 #include "event2/buffer.h"

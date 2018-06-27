@@ -5,11 +5,8 @@
  *      Author: root
  */
 
-#include "stpool/stpool.h"
-#include "common_args.h"
 #include "hash_table.h"
 #include "stream_hash.h"
-#include "sip_hash.h"
 
 extern struct event_base *pEventBase;
 
@@ -39,8 +36,8 @@ static STREAM_NODE_HANDLE create_stream_node(STREAM_HASH_TABLE_HANDLE pHashTable
 	STREAM_NODE_HANDLE pStreamNode = (STREAM_NODE_HANDLE)calloc(1, sizeof(STREAM_NODE_OBJ));
 	pStreamNode->iStreamNodeHashValue = uHashValue;
 	strncpy(pStreamNode->cDevId, pSipNode->cDevId, sizeof(pStreamNode->cDevId));
-	strncpy(pStreamNode->cDevIp, pSipNode->cStreamServerIp, sizeof(pStreamNode->cDevIp));
-	pStreamNode->iDevPort = pSipNode->iStreamServerPort;
+	strncpy(pStreamNode->cDevIp, pSipNode->cStreamSourceIp, sizeof(pStreamNode->cDevIp));
+	pStreamNode->iDevPort = pSipNode->iStreamSourcePort;
 	rtp_info_init(&(pStreamNode->stRtpSession.rtp_info_video), 96);
 	pStreamNode->pWorkBase = pEventBase;
 
@@ -99,9 +96,9 @@ HB_VOID del_node_from_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHashTable, STR
 	HB_U32 uHashValue = pStreamNode->iStreamNodeHashValue;
 	printf("\nDDDDDDDDDD  DelNodeFromDevHashTable cDevId=[%s], uStreamHashTableLen=[%d]\n", pStreamNode->cDevId, pHashTable->uStreamHashTableLen);
 
-	pthread_mutex_lock(&(pHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
+//	pthread_mutex_lock(&(pHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 	list_delete(&(pHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), pStreamNode);
-	pthread_mutex_unlock(&(pHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
+//	pthread_mutex_unlock(&(pHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 	return;
 }
 

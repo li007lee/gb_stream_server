@@ -13,7 +13,6 @@
 #include "event.h"
 #include "send_av_data.h"
 #include "server_config.h"
-#include "common_args.h"
 #include "hash_table.h"
 #include "lf_queue.h"
 #include "ps.h"
@@ -21,7 +20,7 @@
 
 //#include "common/elr_mpl.h"
 
-extern STREAM_HASH_TABLE_HANDLE stream_hash_table;
+extern STREAM_HASH_TABLE_HANDLE glStreamHashTable;
 
 #if 0
 static HB_S32 destroy_client_node_list(STREAMING_NODE_HANDLE stream_node)
@@ -43,21 +42,6 @@ static HB_S32 destroy_client_node_list(STREAMING_NODE_HANDLE stream_node)
 }
 #endif
 
-//static unsigned int g_send_socket_buffer_size = 0; //网络发送缓冲区的大小
-////////////////////////////////////////////////////////////////////////////////
-// 函数名：send_data_over_udp
-// 描  述：通过UDP方式发送RTP数据
-// 参  数：[in] fd       网络文件描述符
-//         [in] rtp_peer RTP客户端的网络地址
-//         [in] rtp_buf  RTP数据缓冲的地址
-//         [in] rtp_size RTP数据的大小
-// 返回值：成功返回发送的字节数，出错返回-1
-// 说  明：
-////////////////////////////////////////////////////////////////////////////////
-int send_data_over_udp(HB_S32 fd, struct sockaddr *rtp_peer, char *rtp_buf, unsigned int rtp_size)
-{
-	return sendto(fd, rtp_buf, rtp_size, 0, rtp_peer, sizeof(struct sockaddr));
-}
 
 #if 0
 ////////////////////////////////////////////////////////////////////////////////
@@ -111,140 +95,136 @@ static HB_S32 destroy_client_rtp_list(list_t *listClientNodeHead)
 
 static HB_S32 destroy_client_rtp_list(list_t *listClientNodeHead)
 {
-	HB_S32 rtp_client_nums = 0;
-	RTP_CLIENT_TRANSPORT_HANDLE rtp_client_node = NULL;
-	rtp_client_nums = list_size(listClientNodeHead);
-	while (rtp_client_nums)
+	HB_S32 iClientNums = 0;
+	RTP_CLIENT_TRANSPORT_HANDLE pClientNode = NULL;
+	iClientNums = list_size(listClientNodeHead);
+	while (iClientNums)
 	{
 		//printf("\n*********************    list size=[%d]\n", list_size(listClientNodeHead));
-		rtp_client_node = list_get_at(listClientNodeHead, 0);
-		list_delete(listClientNodeHead, rtp_client_node);
-//		list_delete_at(listClientNodeHead, 0);
-		if (rtp_client_node->pSendStreamBev != NULL)
+		pClientNode = list_get_at(listClientNodeHead, 0);
+		list_delete(listClientNodeHead, pClientNode);
+		if (pClientNode->pSendStreamBev != NULL)
 		{
-			//bufferevent_disable(rtp_client_node->bev, EV_READ|EV_WRITE);
-			bufferevent_free(rtp_client_node->pSendStreamBev);
-			rtp_client_node->pSendStreamBev = NULL;
+			bufferevent_free(pClientNode->pSendStreamBev);
+			pClientNode->pSendStreamBev = NULL;
 		}
-		if (rtp_client_node->hEventArgs != NULL)
+		if (pClientNode->hEventArgs != NULL)
 		{
-			free(rtp_client_node->hEventArgs);
-			rtp_client_node->hEventArgs = NULL;
+			free(pClientNode->hEventArgs);
+			pClientNode->hEventArgs = NULL;
 		}
-		if (rtp_client_node->iUdpVideoFd > 0)
+		if (pClientNode->iUdpVideoFd > 0)
 		{
-			close(rtp_client_node->iUdpVideoFd);
-			rtp_client_node->iUdpVideoFd = -1;
+			close(pClientNode->iUdpVideoFd);
+			pClientNode->iUdpVideoFd = -1;
 		}
-		free(rtp_client_node);
-		rtp_client_node = NULL;
-		rtp_client_nums--;
+		free(pClientNode);
+		pClientNode = NULL;
+		iClientNums--;
 	}
 	list_destroy(listClientNodeHead);
 	return 0;
 }
 
-static HB_VOID delete_rtp_data_list(lf_queue queue)
+static HB_VOID delete_rtp_data_list(lf_queue pQueue)
 {
-	QUEUE_ARGS_OBJ queue_out;
-	while (nolock_queue_len(queue) > 0)
+	QUEUE_ARGS_OBJ stQueueOut;
+	while (nolock_queue_len(pQueue) > 0)
 	{
-		nolock_queue_pop(queue, &queue_out);
-		if (queue_out.data_buf != NULL)
+		nolock_queue_pop(pQueue, &stQueueOut);
+		if (stQueueOut.data_buf != NULL)
 		{
 #if JE_MELLOC_FUCTION
 			je_free(queue_out.data_buf);
 #else
-			free(queue_out.data_buf);
+			free(stQueueOut.data_buf);
 #endif
-			queue_out.data_buf = NULL;
+			stQueueOut.data_buf = NULL;
 		}
 	}
-	printf("\n***************     queue size = [%d]\n", nolock_queue_len(queue));
+	printf("\n***************     queue size = [%d]\n", nolock_queue_len(pQueue));
 	return;
 }
 
-HB_VOID send_rtp_to_client_task_err_cb(struct sttask *ptask, long reasons)
+HB_VOID send_rtp_to_client_task_err_cb(struct sttask *pStpoolTask, long iReasons)
 {
 	// Try to free the customed task in its error handler
-	if (0x1 & stpool_task_get_userflags(ptask))
+	if (0x1 & stpool_task_get_userflags(pStpoolTask))
 	{
 		printf("\nMMMMMMMMMMMMMMMMMMMMM  send_rtp_to_client_task_err_cb. [%d]\n", sizeof(struct sttask));
-		stpool_task_detach(ptask);
-		stpool_task_delete(ptask);
+		stpool_task_detach(pStpoolTask);
+		stpool_task_delete(pStpoolTask);
 		return;
 	}
 }
 
-HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
+HB_VOID send_rtp_to_client_task(struct sttask *pStpoolTask)
 {
-	PS_FRAME_INFO_OBJ ps_info;
+	PS_FRAME_INFO_OBJ stPsInfo;
 //	ps_init(25);
-	struct evbuffer *evbuf = NULL;
-	STREAM_NODE_HANDLE p_stream_node = (STREAM_NODE_HANDLE) (ptsk->task_arg);
-	printf("\n@@@@@@@@@@@  send_rtp_to_client_task TASK start!dev_addr=%p\n", p_stream_node);
-	HB_S32 ret = 0;
-	HB_S32 rtp_data_nums = 0;
-	HB_U32 send_interval = 0;
-	HB_CHAR *video_data_node = NULL;
-	HB_S32 rtp_data_buf_pre_size = 0;
-	BOX_CTRL_CMD_OBJ cmd_head;
-	memset(&cmd_head, 0, sizeof(BOX_CTRL_CMD_OBJ));
-	HB_U32 cur_node_data_size = 0;
-	HB_S32 set_sps_pps_to_data_base_flag = 0;
-	HB_S32 hash_value = 0;
-	hash_value = p_stream_node->iStreamNodeHashValue;
-	HB_CHAR cDevId[128] = { 0 };
+//	struct evbuffer *pEvBuf = NULL;
+	STREAM_NODE_HANDLE pStreamNode = (STREAM_NODE_HANDLE) (pStpoolTask->task_arg);
+	printf("\n@@@@@@@@@@@  send_rtp_to_client_task TASK start!dev_addr=%p\n", pStreamNode);
+	HB_S32 iRet = 0;
+	HB_S32 iRtpDataNums = 0;
+	HB_U32 uSendInterval = 0;
+	HB_CHAR *pVideoDataNode = NULL;
+	HB_S32 iRtpDataBufPreSize = 0;
+	BOX_CTRL_CMD_OBJ stCmdHead;
+	memset(&stCmdHead, 0, sizeof(BOX_CTRL_CMD_OBJ));
+	HB_U32 uCurNodeDataSize = 0;
+//	HB_S32 iSetSpsPpsToDataBaseFlag = 0;
+//	HB_U32 uHashValue = 0;
+//	uHashValue = pStreamNode->iStreamNodeHashValue;
+//	HB_CHAR cDevId[128] = { 0 };
+//	struct timeval now;
+//	struct timespec outtime;
+	HB_U64 u64AddTime = 0;
+	HB_U64 u64Time = 0;
+	HB_U64 u64TimestampOld = 0;	//上一帧时间戳
+	HB_U64 u64TimestampCurrent = 0;	//当前帧时间戳
+	HB_S32 iErrTimestampTimes = 0;	//时间戳后来的比先来的小，这样的错误次数计数，调试打印用
 
-	struct timeval now;
-	struct timespec outtime;
-
-	HB_U64 add_time = 0;
-	HB_U64 itime = 0;
-	HB_U64 timestamp_old = 0;	//上一帧时间戳
-	HB_U64 timestamp_current = 0;	//当前帧时间戳
-	HB_S32 err_timestamp_times = 0;	//时间戳后来的比先来的小，这样的错误次数计数，调试打印用
-
-	memset(&ps_info, 0, sizeof(PS_FRAME_INFO_OBJ));
-	memcpy(cDevId, p_stream_node->cDevId, 127);
+	memset(&stPsInfo, 0, sizeof(PS_FRAME_INFO_OBJ));
+//	memcpy(cDevId, pStreamNode->cDevId, 127);
 //	int ps_fd = open("./test.ps", O_RDWR|O_CREAT, 0777);
 
-	char *p_ps_data = (char*) malloc(512 * 1400);
-	int ps_data_len = 0;
+	HB_CHAR *pPsData = (char*) calloc(1, 512 * 1400);
+	HB_S32 iPsDataLen = 0;
 
 	for (;;)
 	{
-//		printf("\n111111111   [%d]\n", list_size(&(p_stream_node->listClientNodeHead)));
-		video_data_node = NULL;
-		memset(&cmd_head, 0, sizeof(BOX_CTRL_CMD_OBJ));
+//		printf("\n111111111   [%d]\n", list_size(&(pStreamNode->listClientNodeHead)));
+		pVideoDataNode = NULL;
+		memset(&stCmdHead, 0, sizeof(BOX_CTRL_CMD_OBJ));
 		//客户节点为0或发送线程标识为退出状态,表示此通道可以关闭
 #if 1
-		if(2 == p_stream_node->uGetStreamThreadStartFlag)	//接收数据模块异常退出
+		if(2 == pStreamNode->uGetStreamThreadStartFlag)	//接收数据模块异常退出
 		{
-			ret = -101;
+			iRet = -101;
 			break;
 		}
-		if((0 == list_size(&(p_stream_node->listClientNodeHead))))
+		if((0 == list_size(&(pStreamNode->listClientNodeHead))))
 		{
-			p_stream_node->uRtpClientNodeSendDataThreadFlag = 2;
-			ret = -102;
+			pStreamNode->uRtpClientNodeSendDataThreadFlag = 2;
+			iRet = -102;
 			break;
 		}
 
-		rtp_data_nums = nolock_queue_len(p_stream_node->queueStreamData);
-		if(rtp_data_nums > 15)
+		iRtpDataNums = nolock_queue_len(pStreamNode->queueStreamData);
+		if(iRtpDataNums > 15)
 		{
-			if(rtp_data_nums >= (STREAM_DATA_FRAME_BUFFER_NUMS))
+			if(iRtpDataNums >= (STREAM_DATA_FRAME_BUFFER_NUMS))
 			{
-				send_interval = 20000;
+				uSendInterval = 20000;
 			}
-			else if (rtp_data_nums < (STREAM_DATA_FRAME_BUFFER_NUMS) && (rtp_data_nums > 15))
+			else if (iRtpDataNums < (STREAM_DATA_FRAME_BUFFER_NUMS) && (iRtpDataNums > 15))
 			{
-				send_interval = 40000;
+				uSendInterval = 40000;
 			}
-			else if (rtp_data_nums <= 15)
+			else if (iRtpDataNums <= 15)
 			{
-				send_interval = 60000;
+				uSendInterval = 60000;
 			}
 		}
 		else
@@ -254,106 +234,106 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 		}
 
 #endif
-//		printf("\n#############    list size = [%d]\n", list_size(&(p_stream_node->listClientNodeHead)));
-		//video_data_node = list_get_at(&(p_stream_node->stream_data_node_head), 0);
-		QUEUE_ARGS_OBJ queue_out;
-		ret = nolock_queue_pop(p_stream_node->queueStreamData, &queue_out);
-		video_data_node = queue_out.data_buf;
-		rtp_data_buf_pre_size = queue_out.data_pre_buf_size;
-		if (video_data_node != NULL)
+//		printf("\n#############    list size = [%d]\n", list_size(&(pStreamNode->listClientNodeHead)));
+		//pVideoDataNode = list_get_at(&(pStreamNode->stream_data_node_head), 0);
+		QUEUE_ARGS_OBJ stQueueOut;
+		iRet = nolock_queue_pop(pStreamNode->queueStreamData, &stQueueOut);
+		pVideoDataNode = stQueueOut.data_buf;
+		iRtpDataBufPreSize = stQueueOut.data_pre_buf_size;
+		if (pVideoDataNode != NULL)
 		{
-			memcpy(&cmd_head, video_data_node + rtp_data_buf_pre_size, 32);
+			memcpy(&stCmdHead, pVideoDataNode + iRtpDataBufPreSize, 32);
 #if 1
-			if (0 == timestamp_old)
+			if (0 == u64TimestampOld)
 			{
-				add_time = 0;
-				timestamp_old = (HB_U64) (cmd_head.v_pts);
-				if (0 == timestamp_old)
+				u64AddTime = 0;
+				u64TimestampOld = (HB_U64) (stCmdHead.v_pts);
+				if (0 == u64TimestampOld)
 				{
-					add_time = 3600;
+					u64AddTime = 3600;
 				}
 			}
 			else
 			{
-				timestamp_current = (HB_U64) (cmd_head.v_pts);
-				if (0 == timestamp_current)
+				u64TimestampCurrent = (HB_U64) (stCmdHead.v_pts);
+				if (0 == u64TimestampCurrent)
 				{
-					add_time = 3600;
+					u64AddTime = 3600;
 				}
 				else
 				{
-					if (((HB_S64) timestamp_current - (HB_S64) timestamp_old) < 0)
+					if (((HB_S64) u64TimestampCurrent - (HB_S64) u64TimestampOld) < 0)
 					{
-						err_timestamp_times++;
+						iErrTimestampTimes++;
 					}
-					else if (0 == ((HB_S64) timestamp_current - (HB_S64) timestamp_old))
+					else if (0 == ((HB_S64) u64TimestampCurrent - (HB_S64) u64TimestampOld))
 					{
-						add_time = 3600;
+						u64AddTime = 3600;
 					}
 					else
 					{
-						add_time = (timestamp_current - timestamp_old);
+						u64AddTime = (u64TimestampCurrent - u64TimestampOld);
 					}
-					timestamp_old = timestamp_current;
+					u64TimestampOld = u64TimestampCurrent;
 				}
-				//printf("\n**************  timestamp_current=%lu   timestamp_old=%lu  timestamp=%d:%d\n", timestamp_current, timestamp_old, stDeviceInfo->m_TimeStampHigh, pPackage->iTimeStampLow);
+				//printf("\n**************  u64TimestampCurrent=%lu   u64TimestampOld=%lu  timestamp=%d:%d\n", u64TimestampCurrent, u64TimestampOld, stDeviceInfo->m_TimeStampHigh, pPackage->iTimeStampLow);
 
 			}
 #endif
 
-			itime += add_time;
-			if (add_time <= 0)
+			u64Time += u64AddTime;
+			if (u64AddTime <= 0)
 			{
-				add_time = 3600;
+				u64AddTime = 3600;
 			}
 
-//			itime += 3600;
-//			printf("\n***************  v_pts=%lu rtsp_time_stamp =%lu, add_time=%lu   \n", (HB_U64) (cmd_head.v_pts), itime, add_time);
-			cur_node_data_size = 0;
-			if (I_FRAME == cmd_head.data_type) //I帧
+//			u64Time += 3600;
+//			printf("\n***************  v_pts=%lu rtsp_time_stamp =%lu, u64AddTime=%lu   \n", (HB_U64) (stCmdHead.v_pts), u64Time, u64AddTime);
+			uCurNodeDataSize = 0;
+			if (I_FRAME == stCmdHead.data_type) //I帧
 			{
-				ps_process(&ps_info, video_data_node + rtp_data_buf_pre_size + 32, cmd_head.cmd_length, 1, p_ps_data+rtp_data_buf_pre_size, &ps_data_len, itime, add_time);
-//    			write(ps_fd, p_ps_data+rtp_data_buf_pre_size, ps_data_len);
-				cur_node_data_size = pack_ps_rtp_and_add_node(p_stream_node, p_ps_data, ps_data_len, itime, rtp_data_buf_pre_size, 1);
+				ps_process(&stPsInfo, pVideoDataNode + iRtpDataBufPreSize + 32, stCmdHead.cmd_length, 1, pPsData+iRtpDataBufPreSize, &iPsDataLen, u64Time, u64AddTime);
+//    			write(ps_fd, p_ps_data+iRtpDataBufPreSize, ps_data_len);
+				uCurNodeDataSize = pack_ps_rtp_and_add_node(pStreamNode, pPsData, iPsDataLen, u64Time, iRtpDataBufPreSize, 1);
 			}
-			else if (BP_FRAME == cmd_head.data_type) //P帧
+			else if (BP_FRAME == stCmdHead.data_type) //P帧
 			{
-				ps_process(&ps_info, video_data_node + rtp_data_buf_pre_size + 32, cmd_head.cmd_length, 0, p_ps_data + rtp_data_buf_pre_size, &ps_data_len, itime, add_time);
-//				write(ps_fd, p_ps_data + rtp_data_buf_pre_size, ps_data_len);
-				cur_node_data_size = pack_ps_rtp_and_add_node(p_stream_node, p_ps_data, ps_data_len, itime, rtp_data_buf_pre_size, 0);
+				ps_process(&stPsInfo, pVideoDataNode + iRtpDataBufPreSize + 32, stCmdHead.cmd_length, 0, pPsData + iRtpDataBufPreSize, &iPsDataLen, u64Time, u64AddTime);
+//				write(ps_fd, p_ps_data + iRtpDataBufPreSize, ps_data_len);
+				uCurNodeDataSize = pack_ps_rtp_and_add_node(pStreamNode, pPsData, iPsDataLen, u64Time, iRtpDataBufPreSize, 0);
 			}
 			else
 			{
 				//printf("\n#########   audio ..... \n");
 #if JE_MELLOC_FUCTION
-				je_free(video_data_node);
+				je_free(pVideoDataNode);
 #else
-				free(video_data_node);
+				free(pVideoDataNode);
 #endif
-				video_data_node = NULL;
+				pVideoDataNode = NULL;
 				continue;
 			}
 
-//			if (cur_node_data_size <= 0)
+//			if (uCurNodeDataSize == 0)
 //			{
-//				printf("\n#########   cur_node_data_size=[%d] \n", cur_node_data_size);
+//				printf("\n#########   uCurNodeDataSize=[%d] \n", uCurNodeDataSize);
 //#if JE_MELLOC_FUCTION
-//				je_free(video_data_node);
+//				je_free(pVideoDataNode);
 //#else
-//				free(video_data_node);
+//				free(pVideoDataNode);
 //#endif
-//				video_data_node = NULL;
+//				pVideoDataNode = NULL;
 //				ret = -103;
-//				p_stream_node->uRtpClientNodeSendDataThreadFlag = 2;
+//				pStreamNode->uRtpClientNodeSendDataThreadFlag = 2;
 //				break;
 //			}
 			//printf("\n***************pack_video_rtp_and_add_node() pack_video_rtp_and_add_node = [%d]  \n", pack_video_rtp_and_add_node);
-			//pthread_mutex_lock(&(p_stream_node->client_rtp_mutex));
-			//list_delete(&(p_stream_node->stream_data_node_head), video_data_node);
-			//je_free(video_data_node);
-			free(video_data_node);
-			video_data_node = NULL;
-			usleep(send_interval);
+			//pthread_mutex_lock(&(pStreamNode->client_rtp_mutex));
+			//list_delete(&(pStreamNode->stream_data_node_head), pVideoDataNode);
+			//je_free(pVideoDataNode);
+			free(pVideoDataNode);
+			pVideoDataNode = NULL;
+			usleep(uSendInterval);
 			continue;
 
 
@@ -361,22 +341,22 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 			HB_S32 i = 0;
 			HB_S32 client_list_size = 0;
 			HB_S32 tmp_list_size = 0;
-			client_list_size = list_size(&(p_stream_node->listClientNodeHead));
+			client_list_size = list_size(&(pStreamNode->listClientNodeHead));
 			tmp_list_size = client_list_size;
 			while (tmp_list_size)
 			{
-				RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE) list_get_at(&(p_stream_node->listClientNodeHead), i);
+				RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE) list_get_at(&(pStreamNode->listClientNodeHead), i);
 				if (RTP_rtp_avp_tcp == client_node->enumRtpType && 1 == client_node->iStreamStartFlag)    		//TCP传输
 				{
-					//printf("\n111111111   [%d]\n", list_size(&(p_stream_node->listClientNodeHead)));
+					//printf("\n111111111   [%d]\n", list_size(&(pStreamNode->listClientNodeHead)));
 					ret = 0;
-					if (0 == client_node->iSendIframeFlag && I_FRAME == cmd_head.data_type)
+					if (0 == client_node->iSendIframeFlag && I_FRAME == stCmdHead.data_type)
 					{
 						if (client_node->iDeleteFlag != 1)
 						{
 							if (NULL != client_node->bev)
 							{
-//        						ret = bufferevent_write(client_node->bev, video_data_node, cur_node_data_size);
+//        						ret = bufferevent_write(client_node->bev, pVideoDataNode, uCurNodeDataSize);
 								evbuf = bufferevent_get_output(client_node->bev);
 							}
 							else
@@ -410,7 +390,7 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 							if (NULL != client_node->bev)
 							{
 								//printf("\nPPPPPPPPPP max_single write = %d  read = %d\n", bufferevent_get_max_single_write(client_node->bev),bufferevent_get_max_single_read(client_node->bev));
-//        						ret = bufferevent_write(client_node->bev, video_data_node, cur_node_data_size);
+//        						ret = bufferevent_write(client_node->bev, pVideoDataNode, uCurNodeDataSize);
 								evbuf = bufferevent_get_output(client_node->bev);
 							}
 							else
@@ -427,7 +407,7 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 								}
 								else
 								{
-									if (AUDIO_FRAME == cmd_head.data_type)
+									if (AUDIO_FRAME == stCmdHead.data_type)
 									{
 										send_interval = 1;
 									}
@@ -452,24 +432,24 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 							bufferevent_free(client_node->bev);
 						}
 
-						list_remove(&(p_stream_node->listClientNodeHead), client_node);
+						list_remove(&(pStreamNode->listClientNodeHead), client_node);
 						free(client_node);
 #if 0
 						//pthread_rwlock_wrlock(&(dev_hash_table->hash_node[hash_value].dev_rwlock));
-						if(1 == p_stream_node->uGetStreamThreadStartFlag)//接收流模块正在工作，这里只是摘除节点，由接收流模块进行释放
+						if(1 == pStreamNode->uGetStreamThreadStartFlag)//接收流模块正在工作，这里只是摘除节点，由接收流模块进行释放
 						{
-							if(0 == list_size(&(p_stream_node->listClientNodeHead)))    		//客户队列为0
+							if(0 == list_size(&(pStreamNode->listClientNodeHead)))    		//客户队列为0
 							{
-								list_remove(&(p_stream_node->streaming_node_head), p_stream_node);
-								if(0 == list_size(&(p_stream_node->streaming_node_head)))
+								list_remove(&(pStreamNode->streaming_node_head), pStreamNode);
+								if(0 == list_size(&(pStreamNode->streaming_node_head)))
 								{
-									list_remove(&(dev_hash_table->hash_node[hash_value].p_stream_node_head), p_stream_node);
-									free(p_stream_node);
-									p_stream_node = NULL;
+									list_remove(&(dev_hash_table->hash_node[hash_value].p_stream_node_head), pStreamNode);
+									free(pStreamNode);
+									pStreamNode = NULL;
 								}
-								p_stream_node->uRtpClientNodeSendDataThreadFlag = 2;
+								pStreamNode->uRtpClientNodeSendDataThreadFlag = 2;
 								pthread_mutex_unlock(&(dev_hash_table->hash_node[hash_value].dev_mutex));
-								//pthread_rwlock_unlock(&(p_stream_node->client_rwlock));
+								//pthread_rwlock_unlock(&(pStreamNode->client_rwlock));
 								TRACE_ERR("###################send rtp data thread exit 03 [ret = %d]####################\n", ret);
 								return;
 							}
@@ -478,13 +458,13 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 						else //接收流模块异常退出，stream_node节点已由接收流模块摘除，这里释放strem_node节点及此节点以下的资源
 						{
 							//pthread_rwlock_wrlock(&(dev_hash_table->hash_node[hash_value].dev_rwlock));
-							delet_rtp_data_list(&(p_stream_node->stream_data_node_head));
+							delet_rtp_data_list(&(pStreamNode->stream_data_node_head));
 							//pthread_rwlock_unlock(&(dev_hash_table->hash_node[hash_value].dev_rwlock));
-							destroy_client_rtp_list(&(p_stream_node->listClientNodeHead));//释放rtp客户队列
-							free(p_stream_node);
-							p_stream_node = NULL;
+							destroy_client_rtp_list(&(pStreamNode->listClientNodeHead));//释放rtp客户队列
+							free(pStreamNode);
+							pStreamNode = NULL;
 							pthread_mutex_unlock(&(dev_hash_table->hash_node[hash_value].dev_mutex));
-							//pthread_rwlock_unlock(&(p_stream_node->client_rwlock));
+							//pthread_rwlock_unlock(&(pStreamNode->client_rwlock));
 							TRACE_ERR("###################send rtp data thread exit 04 [ret = %d]####################\n", ret);
 							return;
 						}
@@ -500,43 +480,46 @@ HB_VOID send_rtp_to_client_task(struct sttask *ptsk)
 #endif
 
 #if JE_MELLOC_FUCTION
-			je_free(video_data_node);
+			je_free(pVideoDataNode);
 #else
-			free(video_data_node);
+			free(pVideoDataNode);
 #endif
-			video_data_node = NULL;
+			pVideoDataNode = NULL;
 		}
-		usleep(send_interval);
+		usleep(uSendInterval);
 		continue;
 
 	}
 
 ERR:
-	TRACE_ERR("000###################send rtp data thread exit [ret = %d]####################\n", ret);
-	free(p_ps_data);
-	p_ps_data = NULL;
-	if (2 == p_stream_node->uRtpClientNodeSendDataThreadFlag) //rtp发送线程先出现异常
+	TRACE_ERR("000###################send rtp data thread exit [ret = %d]####################\n", iRet);
+	free(pPsData);
+	pPsData = NULL;
+	if (2 == pStreamNode->uRtpClientNodeSendDataThreadFlag) //rtp发送线程先出现异常
 	{
-		while (p_stream_node->uGetStreamThreadStartFlag != 2)
+		while (pStreamNode->uGetStreamThreadStartFlag != 2)
 		{
 			usleep(5000);
 		}
 	}
-	TRACE_ERR("111###################send rtp data thread exit [ret = %d]####################\n", ret);
-	del_node_from_stream_hash_table(stream_hash_table, p_stream_node);
-	delete_rtp_data_list(p_stream_node->queueStreamData);
-	nolock_queue_destroy(&(p_stream_node->queueStreamData));
-	destroy_client_rtp_list(&(p_stream_node->listClientNodeHead)); //释放rtp客户队列
-	if (NULL != p_stream_node->hGetStreamFromSource)
+	TRACE_ERR("111###################send rtp data thread exit [ret = %d]####################\n", iRet);
+	HB_U32 uHashValue = pStreamNode->iStreamNodeHashValue;
+	pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
+	del_node_from_stream_hash_table(glStreamHashTable, pStreamNode);
+	delete_rtp_data_list(pStreamNode->queueStreamData);
+	nolock_queue_destroy(&(pStreamNode->queueStreamData));
+	destroy_client_rtp_list(&(pStreamNode->listClientNodeHead)); //释放rtp客户队列
+	if (NULL != pStreamNode->hGetStreamFromSource)
 	{
-		free(p_stream_node->hGetStreamFromSource);
-		p_stream_node->hGetStreamFromSource = NULL;
+		free(pStreamNode->hGetStreamFromSource);
+		pStreamNode->hGetStreamFromSource = NULL;
 	}
 
-	free(p_stream_node);
-	p_stream_node = NULL;
-	send_rtp_to_client_task_err_cb(ptsk, 0);
-	TRACE_ERR("222###################send rtp data thread exit [ret = %d]####################\n", ret);
+	free(pStreamNode);
+	pStreamNode = NULL;
+	send_rtp_to_client_task_err_cb(pStpoolTask, 0);
+	pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
+	TRACE_ERR("222###################send rtp data thread exit [ret = %d]####################\n", iRet);
 
 	return;
 }

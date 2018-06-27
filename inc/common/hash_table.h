@@ -8,6 +8,7 @@
 #ifndef HASH_TABLE_H_
 #define HASH_TABLE_H_
 
+#include "my_include.h"
 #include "simclist.h"
 
 extern HB_U32 (*pHashFunc)(HB_CHAR *str);

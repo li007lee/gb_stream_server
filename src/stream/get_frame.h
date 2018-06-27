@@ -8,7 +8,6 @@
 #ifndef GET_STREAM_H_
 #define GET_STREAM_H_
 
-#include "common_args.h"
 #include "../stream_hash.h"
 
 #define MAX_RTP_PACKET_SIZE (1448) //1500(max) - 20(IP header) - 20(TCP header) - 12or14(RTP header)

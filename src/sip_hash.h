@@ -10,7 +10,26 @@
 
 #include "my_include.h"
 #include "simclist.h"
-#include "common_args.h"
+
+typedef struct _tagSIP_DEV_ARGS
+{
+	HB_CHAR cSsrc[16]; //SSRC值,sdp消息中的y值
+	HB_CHAR cCallId[32]; //会话ID
+	HB_CHAR	cDevSn[32]; //设备编号
+	HB_CHAR	cPushIp[16]; //视频流推送到的ip
+	HB_S32 iPushPort; //视频流推送到的端口
+	HB_CHAR cDevId[128];	//设备id
+	HB_S32	iDevChnl; //设备通道号
+	HB_S32	iStreamType;//设备主子码流
+	HB_CHAR	cStreamSourceIp[16]; //视频源ip
+	HB_S32	iStreamSourcePort;	//视频源端口
+}SIP_DEV_ARGS_OBJ, *SIP_DEV_ARGS_HANDLE;
+
+typedef enum _CMD_TYPE
+{
+	PLAY=1,
+	STOP
+}CMD_TYPE;
 
 typedef struct _tagSIP_NODE
 {
@@ -23,8 +42,8 @@ typedef struct _tagSIP_NODE
 	HB_CHAR	cPushIp[16]; //视频流推送到的ip
 	HB_S32 iPushPort; //视频流推送到的端口
 	HB_S32 iStreamType; //主子码流
-	HB_CHAR	cStreamServerIp[16]; //设备所在流媒体ip
-	HB_S32	iStreamServerPort;	//设备所在流媒体端口
+	HB_CHAR	cStreamSourceIp[16]; //设备所在流媒体ip
+	HB_S32	iStreamSourcePort;	//设备所在流媒体端口
 	HB_S32 iSipNodeHashValue;
 }SIP_NODE_OBJ, *SIP_NODE_HANDLE;
 
