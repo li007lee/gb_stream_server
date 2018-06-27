@@ -23,7 +23,5 @@ int main(int argc, char **argv)
 
 	start_sip_moudle();
 
-	pause();
-
 	return 0;
 }

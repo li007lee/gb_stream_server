@@ -73,10 +73,9 @@ SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, 
 	SIP_NODE_HANDLE pSipNode = NULL;
 
 	pthread_mutex_lock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
-
 	list_attributes_seeker(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), find_call_id);
 	pSipNode = list_seek(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), pSipDevInfo->call_id);
-
+	pthread_mutex_unlock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
 	if(NULL != pSipNode)
 	{
@@ -88,7 +87,7 @@ SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, 
 		printf("do not found call id:[%s]!\n", pSipDevInfo->call_id);
 	}
 
-	pthread_mutex_unlock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
+
 	return pSipNode;
 }
 

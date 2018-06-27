@@ -14,5 +14,4 @@ extern HB_U32 (*pHashFunc)(HB_CHAR *str);
 
 HB_VOID ChooseHashFunc(HB_CHAR *pHashFuncName);
 
-
 #endif /* HASH_TABLE_H_ */

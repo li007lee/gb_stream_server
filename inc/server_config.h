@@ -9,7 +9,6 @@
 #define INCLUDE_SERVER_CONFIG_H_
 
 //#define RTSP_SERVER_PORT (8557)  //rtsp服务监听端口
-//#define DATA_BASE_FILE "../../data/dev_manager.db" //数据库文件
 
 #define CPU_NUMS (2)
 #define PRIVATE_SERVER_MODE 1   //私服模式 ，1-开启 ，0-关闭（不能与一点通服务模式同时开启）

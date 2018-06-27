@@ -154,11 +154,12 @@ typedef struct _tagSTREAM_HASH_TABLE
 
 
 STREAM_HASH_TABLE_HANDLE stream_hash_table_create(HB_U32 uTableLen);
-STREAM_NODE_HANDLE InsertNodeToStreamHashTable(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE pSipNode);
-STREAM_NODE_HANDLE find_node_from_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE pSipNode);
+STREAM_NODE_HANDLE insert_node_to_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE pSipNode);
+STREAM_NODE_HANDLE find_node_from_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHashTable, HB_U32 uHashValue, SIP_NODE_HANDLE pSipNode);
 HB_VOID del_node_from_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHashTable, STREAM_NODE_HANDLE pStreamNode);
 RTP_CLIENT_TRANSPORT_HANDLE find_client_node(STREAM_NODE_HANDLE pStreamNode, HB_CHAR *pCallId);
 HB_VOID get_stream_hash_state(STREAM_HASH_TABLE_HANDLE pHashTable, HB_CHAR *pHashStateJson);
+HB_U32 get_stream_hash_value(STREAM_HASH_TABLE_HANDLE pHashTable, HB_CHAR *pKey);
 
 
 #endif /* SRC_SERVER_HASH_AND_LIST_SIP_DEV_H_ */

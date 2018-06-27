@@ -175,21 +175,21 @@ static HB_S32 build_response_default(osip_message_t ** dest, osip_dialog_t * dia
 }
 
 
-static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_info)
+static HB_S32 parase_invite(osip_message_t ** pSipMsg, SIP_DEV_ARGS_HANDLE sip_dev_info)
 {
-	osip_body_t *body = NULL;
-	osip_message_get_body(*sip, 0, &body);
+	osip_body_t *pBody = NULL;
+	osip_message_get_body(*pSipMsg, 0, &pBody);
 
 	HB_S32 i = 0;
-	HB_CHAR *media_type = NULL;
-	sdp_t* sdp = NULL;
-	HB_CHAR *p_username = NULL;
-	HB_CHAR *p_session = NULL;
-	HB_CHAR *p_version = NULL;
-	HB_CHAR *p_network = NULL;
-	HB_CHAR *p_addrtype = NULL;
-	HB_CHAR *p_address = NULL;
-	HB_S32 count;
+	HB_CHAR *pMediaType = NULL;
+	sdp_t* pSdp = NULL;
+	HB_CHAR *pUserName = NULL;
+	HB_CHAR *pSession = NULL;
+	HB_CHAR *pVersion = NULL;
+	HB_CHAR *pNetwork = NULL;
+	HB_CHAR *pAddrType = NULL;
+	HB_CHAR *pAddress = NULL;
+	HB_S32 iMediaCount;
 
 //	char body[1024] = { 0 };
 //	strncpy(body, "v=0\r\n"
@@ -206,44 +206,44 @@ static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_i
 //					"y=0201002353\r\n", sizeof(body));
 //	printf("body :\n[%s]\n", body->body);
 
-	sdp = sdp_parse(body->body);
-	count = sdp_media_count(sdp);
-	if (count < 0)
+	pSdp = sdp_parse(pBody->body);
+	iMediaCount = sdp_media_count(pSdp);
+	if (iMediaCount < 0)
 	{
-		sdp_destroy(sdp);
+		sdp_destroy(pSdp);
 		return -1;
 	}
-	sdp_origin_get(sdp, (const HB_CHAR **)&p_username, (const HB_CHAR **)&p_session, (const HB_CHAR **)&p_version, (const HB_CHAR **)&p_network, (const HB_CHAR **)&p_addrtype, (const HB_CHAR **)&p_address);
+	sdp_origin_get(pSdp, (const HB_CHAR **)&pUserName, (const HB_CHAR **)&pSession, (const HB_CHAR **)&pVersion, (const HB_CHAR **)&pNetwork, (const HB_CHAR **)&pAddrType, (const HB_CHAR **)&pAddress);
 
-	strncpy(sip_dev_info->st_sip_dev_id, p_username, sizeof(sip_dev_info->st_sip_dev_id));
-	strncpy(sip_dev_info->st_push_ip, p_address, sizeof(sip_dev_info->st_push_ip));
+	strncpy(sip_dev_info->st_sip_dev_id, pUserName, sizeof(sip_dev_info->st_sip_dev_id));
+	strncpy(sip_dev_info->st_push_ip, pAddress, sizeof(sip_dev_info->st_push_ip));
 
-	const HB_CHAR *ssrc = sdp_y_get(sdp);
+	const HB_CHAR *ssrc = sdp_y_get(pSdp);
 	if (NULL != ssrc)
 	{
 		strncpy(sip_dev_info->st_y, ssrc, sizeof(sip_dev_info->st_y));
 	}
 
-	osip_call_id_t *call_id = osip_message_get_call_id(*sip);
-	if (NULL != call_id)
+	osip_call_id_t *pCallId = osip_message_get_call_id(*pSipMsg);
+	if (NULL != pCallId)
 	{
 //		printf("call_id:[%s]\n", call_id->number);
-		strncpy(sip_dev_info->call_id, call_id->number, sizeof(sip_dev_info->call_id));
+		strncpy(sip_dev_info->call_id, pCallId->number, sizeof(sip_dev_info->call_id));
 	}
 
-	for (i = 0; i < count; i++)
+	for (i = 0; i < iMediaCount; i++)
 	{
-		media_type = sdp_media_type(sdp, i);
-		if (!strcmp(media_type, "video"))
+		pMediaType = sdp_media_type(pSdp, i);
+		if (!strcmp(pMediaType, "video"))
 		{
 			HB_S32 push_port = 0;
 			HB_S32 num = 0;
-			sdp_media_port(sdp, i, &push_port, &num);
+			sdp_media_port(pSdp, i, &push_port, &num);
 			sip_dev_info->st_push_port = push_port;
 
 			HB_CHAR *video_stream_server_info = NULL;
 			HB_CHAR p_stream_port[8] = { 0 };
-			video_stream_server_info = sdp_media_attribute_find(sdp, i, "sms");
+			video_stream_server_info = sdp_media_attribute_find(pSdp, i, "sms");
 			if(NULL != video_stream_server_info)
 			{
 				sscanf(video_stream_server_info, "%[^:]:%[^/]/%s", sip_dev_info->st_stram_server_ip, p_stream_port, sip_dev_info->st_dev_id);
@@ -251,7 +251,7 @@ static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_i
 			}
 
 			HB_CHAR *video_stream_type = NULL;
-			video_stream_type = sdp_media_attribute_find(sdp, i, "streamMode");
+			video_stream_type = sdp_media_attribute_find(pSdp, i, "streamMode");
 			if ((NULL != video_stream_type) && (NULL != strstr(video_stream_type, "SUB")))
 			{
 				//子码流
@@ -269,7 +269,7 @@ static HB_S32 parase_invite(osip_message_t ** sip, SIP_DEV_ARGS_HANDLE sip_dev_i
 //					sip_dev_info->st_sip_dev_id, sip_dev_info->st_dev_id, sip_dev_info->st_stream_type, sip_dev_info->st_stram_server_ip,
 //					sip_dev_info->st_stream_server_port, sip_dev_info->st_push_ip, sip_dev_info->st_push_port, sip_dev_info->st_y);
 
-	sdp_destroy(sdp);
+	sdp_destroy(pSdp);
 
 	return HB_SUCCESS;
 }
@@ -434,11 +434,11 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 				{
 					pSipNode->enumCmdType = STOP;
 					bufferevent_write(pWriteToStreamBev, pSipNode, sizeof(SIP_NODE_OBJ));
+					bufferevent_setcb(sip_stream_msg_pair[1], stream_read_cb, NULL, NULL, NULL);
+					bufferevent_enable(sip_stream_msg_pair[1], EV_READ);
 					del_node_from_sip_hash_table(glSipHashTable, pSipNode);
 					free(pSipNode);
 					pSipNode = NULL;
-					bufferevent_setcb(sip_stream_msg_pair[1], stream_read_cb, NULL, NULL, NULL);
-					bufferevent_enable(sip_stream_msg_pair[1], EV_READ);
 				}
 			}
 		}
@@ -515,7 +515,7 @@ HB_S32 start_sip_moudle()
 	bzero(&stListenAddr, sizeof(stListenAddr));
 	stListenAddr.sin_family = AF_INET;
 	stListenAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	stListenAddr.sin_port = htons(5061);
+	stListenAddr.sin_port = htons(5060);
 	pEventBase = event_base_new();
 	if (!pEventBase)
 	{
