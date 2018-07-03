@@ -62,8 +62,13 @@ typedef struct
 typedef struct _udp_info
 {
 	struct sockaddr_in rtp_peer; //RTP客户端的网络地址
+	struct sockaddr_in rtcp_peer; //RTCP客户端的网络地址
 	port_pair cli_ports;      //客户端的端口对
 	port_pair ser_ports;      //服务器端的端口对
+	struct event *evUdpRtcpListenEvent;
+	HB_S32 iUdpRtcpSockFd;//rtcp通信端口(接收和发送)
+	HB_S32 iUdpVideoFd; //UDP的视频网络文件描述符
+//	HB_S32 iUdpAudioFd; //UDP的音频网络文件描述符
 }udp_info_t;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -78,6 +83,7 @@ typedef struct _tcp_info
 
 typedef struct _tagRTP_CLIENT_TRANSPORT
 {
+//	struct event ev_time;
 	HB_CHAR cCallId[32]; //会话ID
 	struct bufferevent *pSendStreamBev;
 	HB_HANDLE hEventArgs;
@@ -89,11 +95,10 @@ typedef struct _tagRTP_CLIENT_TRANSPORT
 //	HB_S32 iTcpSockFd;       //TCP的网络文件描述符
 //	HB_S32 iNowSeconds;
 //	HB_S32 iLostCnt;
-	HB_S32 iUdpVideoFd; //UDP的视频网络文件描述符
-//	HB_S32 iUdpAudioFd; //UDP的音频网络文件描述符
 //	tcp_info_t stTcpInfo;       //TCP信息
 	udp_info_t stUdpVideoInfo; //视频的UDP信息
 //	udp_info_t stUdpAudioInfo; //音频的UDP信息
+	HB_U32 u32Ssrc;
 }RTP_CLIENT_TRANSPORT_OBJ, *RTP_CLIENT_TRANSPORT_HANDLE;
 
 typedef struct _tagSDP_INFO

@@ -29,6 +29,56 @@ static HB_S32 find_call_id(const HB_VOID *el, const HB_VOID *key)
 }
 
 
+
+static HB_S32 udp_bind_local_port(SIP_NODE_HANDLE pSipNode)
+{
+	HB_S32 iRet = 0;
+
+	pSipNode->iUdpSendStreamPort = 2 * random_number(5000, 10000);
+	while(1)
+	{
+		iRet = check_port(pSipNode->iUdpSendStreamPort);
+		if(HB_FAILURE == iRet)
+		{
+			pSipNode->iUdpSendStreamPort += 2; //发流端口必须为偶数
+			usleep(10000);
+		}
+
+		pSipNode->iUdpRtcpListenPort = pSipNode->iUdpSendStreamPort + 1;
+		iRet = check_port(pSipNode->iUdpRtcpListenPort);
+		if(HB_FAILURE == iRet)
+		{
+			usleep(10000);
+		}
+		else
+		{
+			break;
+		}
+
+	}
+
+	//创建rtp包发送套接字并绑定本地发送端口
+	pSipNode->iUdpSendStreamSockFd = socket(AF_INET, SOCK_DGRAM, 0);
+	struct sockaddr_in stUdpSendStreamAddr;
+	bzero(&stUdpSendStreamAddr, sizeof(stUdpSendStreamAddr));
+	stUdpSendStreamAddr.sin_family = AF_INET;
+	stUdpSendStreamAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	stUdpSendStreamAddr.sin_port = htons(pSipNode->iUdpSendStreamPort);
+	bind(pSipNode->iUdpSendStreamSockFd, (struct sockaddr *) &stUdpSendStreamAddr, sizeof(struct sockaddr));
+
+	//创建rtcp通信套接字并绑定本地rtcp监听端口
+	pSipNode->iUdpRtcpSockFd = socket(AF_INET, SOCK_DGRAM, 0);
+	struct sockaddr_in stUdpRtcpListenAddr;
+	bzero(&stUdpRtcpListenAddr, sizeof(stUdpRtcpListenAddr));
+	stUdpRtcpListenAddr.sin_family = AF_INET;
+	stUdpRtcpListenAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	stUdpRtcpListenAddr.sin_port = htons(pSipNode->iUdpRtcpListenPort);
+	bind(pSipNode->iUdpRtcpSockFd, (struct sockaddr *) &stUdpRtcpListenAddr, sizeof(struct sockaddr));
+
+	return HB_SUCCESS;
+
+}
+
 SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pSipHashTable, SIP_DEV_ARGS_HANDLE pSipDevInfo)
 {
 	printf("\nIIIIIIIIIIII  InsertNodeToSipHashTable dev_id=[%s], call_id=[%s], uHashTableLen=[%d]\n", pSipDevInfo->cDevSn, pSipDevInfo->cCallId, pSipHashTable->uHashTableLen);
@@ -41,6 +91,7 @@ SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pSipHashTabl
 	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
 	if(NULL == pSipNode)
 	{
+		HB_S32 iUdpSendStreamPort = -1;
 		//当前申请的设备不存在（说明是新的设备）
 		//如果当前节点不存在设备，直接插入连表（说明是新设备）
 		pSipNode = (SIP_NODE_HANDLE)calloc(1, sizeof(SIP_NODE_OBJ));
@@ -54,7 +105,9 @@ SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pSipHashTabl
 		strncpy(pSipNode->cPushIp, pSipDevInfo->cPushIp, sizeof(pSipNode->cPushIp));
 		pSipNode->iPushPort = pSipDevInfo->iPushPort;
 		pSipNode->iSipNodeHashValue = uHashValue;
-		strncpy(pSipNode->cSsrc, pSipDevInfo->cSsrc, sizeof(pSipNode->cSsrc));
+		pSipNode->u32Ssrc = (HB_U32)(atoi(pSipDevInfo->cSsrc));
+
+		udp_bind_local_port(pSipNode);
 		list_append(&(pSipHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), (HB_VOID*)pSipNode);
 
 	}
@@ -63,17 +116,17 @@ SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pSipHashTabl
 }
 
 
-SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, SIP_DEV_ARGS_HANDLE pSipDevInfo)
+SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, HB_CHAR *pCallId)
 {
-	printf("\nFFFFFFFFFF  find_node_from_sip_hash_table call_id=[%s], uHashTableLen=[%d]\n", pSipDevInfo->cCallId, pHashTable->uHashTableLen);
-	HB_U32 uHashValue = pHashFunc(pSipDevInfo->cCallId) % pHashTable->uHashTableLen;
+	printf("\nFFFFFFFFFF  find_node_from_sip_hash_table call_id=[%s], uHashTableLen=[%d]\n", pCallId, pHashTable->uHashTableLen);
+	HB_U32 uHashValue = pHashFunc(pCallId) % pHashTable->uHashTableLen;
 	printf("uHashValue=%u\n", uHashValue);
 
 	SIP_NODE_HANDLE pSipNode = NULL;
 
 	pthread_mutex_lock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	list_attributes_seeker(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), find_call_id);
-	pSipNode = list_seek(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), pSipDevInfo->cCallId);
+	pSipNode = list_seek(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), pCallId);
 	pthread_mutex_unlock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
 	if(NULL != pSipNode)
@@ -83,7 +136,7 @@ SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, 
 	else
 	{
 		//当前申请的设备不存在
-		printf("do not found call id:[%s]!\n", pSipDevInfo->cCallId);
+		printf("do not found call id:[%s]!\n", pCallId);
 	}
 
 

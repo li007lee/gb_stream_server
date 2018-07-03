@@ -33,6 +33,8 @@
 #define MAX_THREADS    (2500)   //线程数上限
 #define MIN_THREADS     (500)     //最小启动线程数
 
+#define RTCP_TIMEOUT	(20)
+
 
 //以下是日志和调试的配置
 #define LOG_CONF_FILE "../../log/log_conf.conf"

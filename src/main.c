@@ -21,6 +21,8 @@ int main(int argc, char **argv)
 		return HB_FAILURE;
 	}
 
+	printf("##############Compile Time: %s %s\n", __DATE__, __TIME__);
+
 	start_sip_moudle();
 
 	return 0;

@@ -13,6 +13,7 @@
 #include "net_api.h"
 #include "hash_table.h"
 #include "lf_queue.h"
+#include "common_api.h"
 
 extern STREAM_HASH_TABLE_HANDLE glStreamHashTable;
 extern stpool_t *gb_thread_pool;
@@ -117,31 +118,35 @@ static HB_VOID delete_rtp_data_list(lf_queue queue)
 static HB_S32 destroy_client_rtp_list(list_t *listClientNodeHead)
 {
 	HB_S32 rtp_client_nums = 0;
-	RTP_CLIENT_TRANSPORT_HANDLE client_node = NULL;
+	RTP_CLIENT_TRANSPORT_HANDLE pClientNode = NULL;
 	rtp_client_nums = list_size(listClientNodeHead);
 	while(rtp_client_nums)
 	{
-		client_node = list_get_at(listClientNodeHead, 0);
-		list_delete(listClientNodeHead, client_node);
-		if(client_node->pSendStreamBev != NULL)
+		pClientNode = list_get_at(listClientNodeHead, 0);
+		list_delete(listClientNodeHead, pClientNode);
+		if(pClientNode->pSendStreamBev != NULL)
 		{
-			bufferevent_disable(client_node->pSendStreamBev, EV_READ|EV_WRITE);
-			bufferevent_free(client_node->pSendStreamBev);
-			client_node->pSendStreamBev = NULL;
+			bufferevent_disable(pClientNode->pSendStreamBev, EV_READ|EV_WRITE);
+			bufferevent_free(pClientNode->pSendStreamBev);
+			pClientNode->pSendStreamBev = NULL;
 		}
-		if(client_node->hEventArgs != NULL)
+		if(pClientNode->hEventArgs != NULL)
 		{
-			free(client_node->hEventArgs);
-			client_node->hEventArgs = NULL;
+			free(pClientNode->hEventArgs);
+			pClientNode->hEventArgs = NULL;
 		}
-		if (client_node->iUdpVideoFd > 0)
+		if (pClientNode->stUdpVideoInfo.iUdpVideoFd > 0)
 		{
-			close(client_node->iUdpVideoFd);
-			client_node->iUdpVideoFd = -1;
+			close(pClientNode->stUdpVideoInfo.iUdpVideoFd);
+			pClientNode->stUdpVideoInfo.iUdpVideoFd = -1;
 		}
-
-		free(client_node);
-		client_node = NULL;
+		if (pClientNode->stUdpVideoInfo.iUdpRtcpSockFd > 0)
+		{
+			close(pClientNode->stUdpVideoInfo.iUdpRtcpSockFd);
+			pClientNode->stUdpVideoInfo.iUdpRtcpSockFd = -1;
+		}
+		free(pClientNode);
+		pClientNode = NULL;
 		rtp_client_nums--;
 	}
 	list_destroy(listClientNodeHead);
@@ -368,15 +373,6 @@ static HB_VOID client_read_cb(struct bufferevent *get_push_stream_bev, HB_VOID *
 }
 #endif
 
-
-//获取start_num与end_num之间的随机数
-static HB_S32 random_number(HB_S32 start_num, HB_S32 end_num)
-{
-	HB_S32 ret_num = 0;
-	srand((unsigned)time(0));
-	ret_num = rand() % (end_num - start_num) + start_num;
-	return ret_num;
-}
 
 static HB_S32 recv_box_frame(HB_S32 arg_epfd, struct epoll_event *arg_events, HB_S32 arg_maxevents, HB_VOID *args)
 {

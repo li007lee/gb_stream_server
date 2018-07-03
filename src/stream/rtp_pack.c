@@ -52,13 +52,14 @@ HB_U32 rtsp_random32(void)
 }
 
 
-HB_VOID rtp_info_init(rtp_info_t *rtp_info, HB_S32 payload)
+HB_VOID rtp_info_init(rtp_info_t *rtp_info, HB_S32 payload, HB_U32 u32Ssrc)
 {
 	memset(rtp_info, 0x00, sizeof(rtp_info_t));
 
 	//初始化RTP信息
 	rtp_info->rtp_hdr.payload = payload;
-	rtp_info->rtp_hdr.ssrc = rtsp_random32();
+//	rtp_info->rtp_hdr.ssrc = rtsp_random32();
+	rtp_info->rtp_hdr.ssrc = u32Ssrc;
 	rtp_info->rtp_hdr.version = RTP_VERSION;
 	rtp_info->rtp_hdr.seq_no = 0;
 	rtp_info->rtp_hdr.timestamp = 0;
@@ -274,7 +275,7 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 	rtp_info = &(p_stream_node->stRtpSession.rtp_info_video);
 	start_pos = data_ptr + rtp_data_buf_pre_size;
 	left_bytes = data_size;
-	RTP_CLIENT_TRANSPORT_HANDLE client_node = NULL;
+	RTP_CLIENT_TRANSPORT_HANDLE pClientNode = NULL;
 	HB_S32 i = 0;
 	HB_S32 client_list_size = 0;
 	HB_S32 tmp_list_size = 0;
@@ -395,7 +396,7 @@ HB_U32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 	rtp_info = &(p_stream_node->stRtpSession.rtp_info_video);
 	start_pos = data_ptr + rtp_data_buf_pre_size;
 	left_bytes = data_size;
-	RTP_CLIENT_TRANSPORT_HANDLE client_node = NULL;
+	RTP_CLIENT_TRANSPORT_HANDLE pClientNode = NULL;
 	HB_S32 i = 0;
 	HB_S32 client_list_size = 0;
 	HB_S32 tmp_list_size = 0;
@@ -409,7 +410,6 @@ HB_U32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 		//RTP分包，从一个NALU数据中获取一包RTP数据
 		while ((rtp_buf = get_rtp_ps_pack(rtp_info, &rtp_size)) != NULL)
 		{
-
 //			printf("\n##@@@@@@  rtp_size=%d\n", rtp_size);
 //			HB_U8 tcp_buf[4] = { 0 };
 //			tcp_buf[0] = '$';
@@ -421,32 +421,57 @@ HB_U32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 			tmp_list_size = client_list_size;
 			while (tmp_list_size)
 			{
-				client_node = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(p_stream_node->listClientNodeHead), i);
-//				printf("111111111111client call_id[%s]iSendIframeFlag=%d,client_node->iDeleteFlag=%d\n", client_node->cCallId, client_node->iSendIframeFlag, client_node->iDeleteFlag);
-				if ((client_node->iSendIframeFlag == 0) && (frame_type == 1))
+				pClientNode = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(p_stream_node->listClientNodeHead), i);
+//				printf("111111111111client call_id[%s]iSendIframeFlag=%d,pClientNode->iDeleteFlag=%d\n", pClientNode->cCallId, pClientNode->iSendIframeFlag, pClientNode->iDeleteFlag);
+				if ((pClientNode->iSendIframeFlag == 0) && (frame_type == 1))
 				{
-					client_node->iSendIframeFlag = 1;
+					pClientNode->iSendIframeFlag = 1;
 				}
 
-				if ((client_node->iDeleteFlag == 0) && (client_node->iSendIframeFlag == 1))
+				if ((pClientNode->iDeleteFlag == 0) && (pClientNode->iSendIframeFlag == 1))
 				{
-//					if (client_node->iSendCount++ > 1000)
+//					if (pClientNode->iSendCount++ > 1000)
 //					{
-//						printf("00000000client call_id[%s]iSendIframeFlag=%d,client_node->iDeleteFlag=%d\n", client_node->cCallId, client_node->iSendIframeFlag, client_node->iDeleteFlag);
-//						client_node->iSendCount = 0;
+//						printf("00000000client call_id[%s]iSendIframeFlag=%d,pClientNode->iDeleteFlag=%d\n", pClientNode->cCallId, pClientNode->iSendIframeFlag, pClientNode->iDeleteFlag);
+//						pClientNode->iSendCount = 0;
 //					}
-					sendto(client_node->iUdpVideoFd, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(client_node->stUdpVideoInfo.rtp_peer)), (socklen_t)(sizeof(struct sockaddr_in)));
+					sendto(pClientNode->stUdpVideoInfo.iUdpVideoFd, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(pClientNode->stUdpVideoInfo.rtp_peer)), (socklen_t)(sizeof(struct sockaddr_in)));
 				}
-				else if (client_node->iDeleteFlag == 1)
+				else if (pClientNode->iDeleteFlag == 1)
 				{
 					printf("del client from list\n");
 					pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
-					list_delete(&(p_stream_node->listClientNodeHead), client_node);
+					list_delete(&(p_stream_node->listClientNodeHead), pClientNode);
 					pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
-					close(client_node->iUdpVideoFd);
-					client_node->iUdpVideoFd = -1;
-					free(client_node);
-					client_node = NULL;
+
+					if (pClientNode->pSendStreamBev != NULL)
+					{
+						bufferevent_free(pClientNode->pSendStreamBev);
+						pClientNode->pSendStreamBev = NULL;
+					}
+					if (pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent != NULL)
+					{
+						event_del(pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent);
+						pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent = NULL;
+					}
+					if (pClientNode->hEventArgs != NULL)
+					{
+						free(pClientNode->hEventArgs);
+						pClientNode->hEventArgs = NULL;
+					}
+					if (pClientNode->stUdpVideoInfo.iUdpVideoFd > 0)
+					{
+						close(pClientNode->stUdpVideoInfo.iUdpVideoFd);
+						pClientNode->stUdpVideoInfo.iUdpVideoFd = -1;
+					}
+					if (pClientNode->stUdpVideoInfo.iUdpRtcpSockFd > 0)
+					{
+						close(pClientNode->stUdpVideoInfo.iUdpRtcpSockFd);
+						pClientNode->stUdpVideoInfo.iUdpRtcpSockFd = -1;
+					}
+
+					free(pClientNode);
+					pClientNode = NULL;
 					printf("del client from list ok\n");
 					client_list_size--;
 					--i;

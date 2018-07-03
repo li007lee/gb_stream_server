@@ -140,15 +140,25 @@ static HB_S32 destroy_client_rtp_list(list_t *listClientNodeHead)
 			bufferevent_free(pClientNode->pSendStreamBev);
 			pClientNode->pSendStreamBev = NULL;
 		}
+		if (pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent != NULL)
+		{
+			event_del(pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent);
+			pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent = NULL;
+		}
 		if (pClientNode->hEventArgs != NULL)
 		{
 			free(pClientNode->hEventArgs);
 			pClientNode->hEventArgs = NULL;
 		}
-		if (pClientNode->iUdpVideoFd > 0)
+		if (pClientNode->stUdpVideoInfo.iUdpVideoFd > 0)
 		{
-			close(pClientNode->iUdpVideoFd);
-			pClientNode->iUdpVideoFd = -1;
+			close(pClientNode->stUdpVideoInfo.iUdpVideoFd);
+			pClientNode->stUdpVideoInfo.iUdpVideoFd = -1;
+		}
+		if (pClientNode->stUdpVideoInfo.iUdpRtcpSockFd > 0)
+		{
+			close(pClientNode->stUdpVideoInfo.iUdpRtcpSockFd);
+			pClientNode->stUdpVideoInfo.iUdpRtcpSockFd = -1;
 		}
 		free(pClientNode);
 		pClientNode = NULL;

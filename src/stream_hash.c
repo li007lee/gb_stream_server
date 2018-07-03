@@ -36,9 +36,11 @@ static STREAM_NODE_HANDLE create_stream_node(STREAM_HASH_TABLE_HANDLE pHashTable
 	STREAM_NODE_HANDLE pStreamNode = (STREAM_NODE_HANDLE)calloc(1, sizeof(STREAM_NODE_OBJ));
 	pStreamNode->iStreamNodeHashValue = uHashValue;
 	strncpy(pStreamNode->cDevId, pSipNode->cDevId, sizeof(pStreamNode->cDevId));
+	pStreamNode->iDevChnl = pSipNode->iDevChnl;
+	pStreamNode->iStreamType = pSipNode->iStreamType;
 	strncpy(pStreamNode->cDevIp, pSipNode->cStreamSourceIp, sizeof(pStreamNode->cDevIp));
 	pStreamNode->iDevPort = pSipNode->iStreamSourcePort;
-	rtp_info_init(&(pStreamNode->stRtpSession.rtp_info_video), 96);
+	rtp_info_init(&(pStreamNode->stRtpSession.rtp_info_video), 96, pSipNode->u32Ssrc);
 	pStreamNode->pWorkBase = pEventBase;
 
 	list_init(&(pStreamNode->listClientNodeHead));
@@ -50,9 +52,12 @@ static STREAM_NODE_HANDLE create_stream_node(STREAM_HASH_TABLE_HANDLE pHashTable
 
 STREAM_NODE_HANDLE insert_node_to_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE pSipNode)
 {
+	HB_CHAR cHashSource[128] = {0};
+	snprintf(cHashSource, sizeof(cHashSource), "%s_%d_%d", pSipNode->cSipDevSn, pSipNode->iDevChnl, pSipNode->iStreamType);
 	TRACE_YELLOW("\nIIIIIIIIIIII  insert_node_to_stream_hash_table cDevId=[%s], cCallId=[%s], uStreamHashTableLen=[%d]\n", pSipNode->cSipDevSn, pSipNode->cCallId, pHashTable->uStreamHashTableLen);
-	HB_U32 uHashValue = pHashFunc(pSipNode->cSipDevSn) % pHashTable->uStreamHashTableLen;
-	TRACE_YELLOW("uHashValue=%u\n", uHashValue);
+//	HB_U32 uHashValue = pHashFunc(pSipNode->cSipDevSn) % pHashTable->uStreamHashTableLen;
+	HB_U32 uHashValue = pHashFunc(cHashSource) % pHashTable->uStreamHashTableLen;
+//	TRACE_YELLOW("uHashValue=%u\n", uHashValue);
 	STREAM_NODE_HANDLE pStreamNode = NULL;
 
 	pthread_mutex_lock(&(pHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
@@ -65,11 +70,12 @@ STREAM_NODE_HANDLE insert_node_to_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHa
 		//创建设备节点
 		pStreamNode = create_stream_node(pHashTable, uHashValue, pSipNode);
 		list_append(&(pHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), (HB_VOID*)pStreamNode);
-		printf("$$$$$$$$$$$$$$$$$$$$$$$don't have pStreamNode\n");
+		TRACE_GREEN("$$$$$$$$$$$$$$$$$$$$$$$ Add pStreamNode Sn:[%s] Chnl:[%d] StreamType[%d]\n", pSipNode->cSipDevSn, pSipNode->iDevChnl, pSipNode->iStreamType);
 	}
 	else
 	{
-		printf("$$$$$$$$$$$$$$$$$$$$$$$have pStreamNode\n");
+//		printf("$$$$$$$$$$$$$$$$$$$$$$$have pStreamNode\n");
+		TRACE_GREEN("$$$$$$$$$$$$$$$$$$$$$$$ Allready have Sn:[%s] Chnl:[%d] StreamType[%d]\n", pSipNode->cSipDevSn, pSipNode->iDevChnl, pSipNode->iStreamType);
 	}
 
 	pthread_mutex_unlock(&(pHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
@@ -79,12 +85,12 @@ STREAM_NODE_HANDLE insert_node_to_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHa
 
 STREAM_NODE_HANDLE find_node_from_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHashTable, HB_U32 uHashValue, SIP_NODE_HANDLE pSipNode)
 {
-	TRACE_YELLOW("\nFFFFFFFFFF  find_node_from_stream_hash_table cDevId=[%s], uStreamHashTableLen=[%d]\n", pSipNode->cDevId, pHashTable->uStreamHashTableLen);
+	TRACE_YELLOW("\nFFFFFFFFFF  find_node_from_stream_hash_table cDevId=[%s], uStreamHashTableLen=[%d]\n", pSipNode->cSipDevSn, pHashTable->uStreamHashTableLen);
 	list_attributes_seeker(&(pHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), find_dev_id_chnl_stream_key);
 	STREAM_NODE_HANDLE stream_node = list_seek(&(pHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), pSipNode);
 	if(NULL == stream_node)
 	{
-		printf("do not found dev id:[%s]!\n", pSipNode->cDevId);
+		printf("do not found dev sn:[%s] chnl:[%d] stream_type:[%d]!\n", pSipNode->cSipDevSn, pSipNode->iDevChnl, pSipNode->iStreamType);
 	}
 	return stream_node;
 }
@@ -217,7 +223,7 @@ static HB_S32 find_client_node_key(const HB_VOID *el, const HB_VOID *key)
 	HB_CHAR *pCallId = (HB_CHAR *)key;
 	if (!strcmp(pClientNode->cCallId, pCallId))
 	{
-		printf("Find client call id key: [%s]\n", pCallId);
+//		printf("Find client call id key: [%s]\n", pCallId);
 		return 1;
 	}
 
@@ -231,11 +237,11 @@ RTP_CLIENT_TRANSPORT_HANDLE find_client_node(STREAM_NODE_HANDLE pStreamNode, HB_
 	RTP_CLIENT_TRANSPORT_HANDLE pClientNode = list_seek(&(pStreamNode->listClientNodeHead), pCallId);
 	if(NULL != pClientNode)
 	{
-		printf("Found client node !\n");
+//		printf("Found client node !\n");
 		return pClientNode;
 	}
 
-	printf("not found client!\n");
+//	printf("not found client!\n");
 	return NULL;
 }
 

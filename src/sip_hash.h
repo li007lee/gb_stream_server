@@ -10,6 +10,7 @@
 
 #include "my_include.h"
 #include "simclist.h"
+#include "common_args.h"
 
 typedef struct _tagSIP_DEV_ARGS
 {
@@ -25,16 +26,10 @@ typedef struct _tagSIP_DEV_ARGS
 	HB_S32	iStreamSourcePort;	//视频源端口
 }SIP_DEV_ARGS_OBJ, *SIP_DEV_ARGS_HANDLE;
 
-typedef enum _CMD_TYPE
-{
-	PLAY=1,
-	STOP
-}CMD_TYPE;
-
 typedef struct _tagSIP_NODE
 {
 	CMD_TYPE enumCmdType;
-	HB_CHAR cSsrc[32]; //sip sdp 中的y值
+	HB_U32 u32Ssrc; //sip sdp 中的y值
 	HB_CHAR	cSipDevSn[32]; //设备编号
 	HB_CHAR cDevId[128];//设备序列号
 	HB_CHAR cCallId[32]; //会话ID
@@ -45,6 +40,12 @@ typedef struct _tagSIP_NODE
 	HB_CHAR	cStreamSourceIp[16]; //设备所在流媒体ip
 	HB_S32	iStreamSourcePort;	//设备所在流媒体端口
 	HB_S32 iSipNodeHashValue;
+
+	HB_S32 iUdpSendStreamSockFd;
+	HB_S32 iUdpSendStreamPort;
+	HB_S32 iUdpRtcpSockFd; //rtcp通信逃接字（接收和发送）
+	HB_S32 iUdpRtcpListenPort; //rtcp监听端口
+
 }SIP_NODE_OBJ, *SIP_NODE_HANDLE;
 
 
@@ -65,7 +66,7 @@ typedef struct _tagSIP_HASH_TABLE
 //创建哈希结构
 SIP_HASH_TABLE_HANDLE sip_hash_table_create(HB_U32 uTableLen);
 SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, SIP_DEV_ARGS_HANDLE pSipDevInfo);
-SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, SIP_DEV_ARGS_HANDLE pSipDevInfo);
+SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, HB_CHAR *pCallId);
 //获取哈希表的状态
 HB_VOID get_sip_hash_state(SIP_HASH_TABLE_HANDLE pHashTable, HB_CHAR *pHashStateJson);
 HB_VOID del_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE pSipNode);

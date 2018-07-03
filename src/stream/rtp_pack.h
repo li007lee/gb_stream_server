@@ -104,6 +104,6 @@ typedef struct _RTP_session
 }RTP_session_t;
 
 
-HB_VOID rtp_info_init(rtp_info_t *rtp_info, HB_S32 payload);
+HB_VOID rtp_info_init(rtp_info_t *rtp_info, HB_S32 payload, HB_U32 u32Ssrc);
 
 #endif /* SRC_SERVER_RTP_PACK_H_ */

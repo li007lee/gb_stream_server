@@ -635,23 +635,23 @@ static HB_VOID ps_systemheader_make(PS_SYSTEMHEADER_HANDLE p_systemheader)
 //  	无
 // 说明：
 ////////////////////////////////////////////////////////////////////////////////
-static HB_VOID ps_pesheader_make(PS_FRAME_INFO_HANDLE p_ps_info, PS_PESHEADER_HANDLE p_pesheader, HB_S32 frame_len, ES_FRAME_TYPE_E frame_type, HB_U64 add_time)
+static HB_VOID ps_pesheader_make(PS_PESHEADER_HANDLE p_pesheader, HB_S32 frame_len, ES_FRAME_TYPE_E frame_type, HB_U64 iTime)
 {
 	HB_U32 ulTmp = 0;
 	HB_U8 ucTmp = 0;
 	HB_U32 ulPTS = 0;
 	HB_U32 ulDTS = 0;
-	HB_U32 ulFrameTime = 0;
+	//HB_U32 ulFrameTime = 0;
 
 	if (ES_FRAME_I == frame_type || ES_FRAME_P == frame_type)
 	{
 		//video
 		//HB_U32 uiFrameNo = ps_info.vid_frame_number;
 //		ulFrameTime = 90000 / p_ps_info->framerate;
-		ulFrameTime = add_time;
+		//ulFrameTime = add_time;
 		//ulDTS = ulFrameTime * uiFrameNo;
-		ulDTS = p_ps_info->vid_timestamp;
-		ulPTS = ulDTS + ulFrameTime;
+		ulDTS = iTime;
+		ulPTS = iTime;
 
 		ps_pts(ulPTS, &ucTmp, &ulTmp);
 		PESH_SET_PTSP(p_pesheader, ucTmp);
@@ -664,8 +664,10 @@ static HB_VOID ps_pesheader_make(PS_FRAME_INFO_HANDLE p_ps_info, PS_PESHEADER_HA
 	}
 	else if(ES_FRAME_AUDIO == frame_type)
 	{
-		ulDTS = p_ps_info->aud_timestamp;
-		ulPTS = p_ps_info->aud_timestamp;
+		//ulDTS = p_ps_info->aud_timestamp;
+		//ulPTS = p_ps_info->aud_timestamp;
+		ulDTS = iTime;
+		ulPTS = iTime;
 		ps_pts(ulPTS, &ucTmp, &ulTmp);
 		PESH_SET_PTSP(p_pesheader, ucTmp);
 		PESH_SET_PTS(p_pesheader, htonl(ulTmp));
@@ -789,7 +791,7 @@ HB_S32 ps_process(PS_FRAME_INFO_HANDLE p_ps_info, HB_CHAR* p_srcbuf, HB_S32 fram
 			// pes header
 			PS_PESHEADER_HANDLE p_pesheader = (PS_PESHEADER_HANDLE)(p_ps_data + uioffset);
 			ps_pes_video_init(p_pesheader);
-			ps_pesheader_make(p_ps_info, p_pesheader, frame_len, frame_type, add_time);
+			ps_pesheader_make(p_pesheader, frame_len, frame_type, iTime);
 			uioffset += sizeof(PS_PESHEADER_OBJ);
 
 			// copy data
@@ -842,7 +844,8 @@ HB_S32 ps_process(PS_FRAME_INFO_HANDLE p_ps_info, HB_CHAR* p_srcbuf, HB_S32 fram
             // pes header
             PS_PESHEADER_HANDLE p_pesheader = (PS_PESHEADER_HANDLE)(p_ps_data + uioffset);
             ps_pes_audio_init(p_pesheader);
-            ps_pesheader_make(p_ps_info, p_pesheader, frame_len, frame_type, add_time);
+            //ps_pesheader_make(p_ps_info, p_pesheader, frame_len, frame_type, add_time);
+            ps_pesheader_make(p_pesheader, frame_len, frame_type, iTime);
             uioffset += sizeof(PS_PESHEADER_OBJ);
 
 			// copy data

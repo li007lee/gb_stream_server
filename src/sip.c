@@ -15,11 +15,45 @@
 #include "osipparser2/osip_parser.h"
 #include "stream/stream_moudle.h"
 
+#define VMRSS_LINE 21//VMRSS所在行, 注:根据不同的系统,位置可能有所区别.
+
 SIP_HASH_TABLE_HANDLE glSipHashTable = NULL;
 STREAM_HASH_TABLE_HANDLE glStreamHashTable = NULL;
 struct bufferevent *sip_stream_msg_pair[2];
 struct event_base *pEventBase;
 stpool_t *gb_thread_pool;
+
+
+HB_VOID sip_pair_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
+{
+	SIP_STREAM_MSG_ARGS_HANDLE pRecvFromStreamBevArg = (SIP_STREAM_MSG_ARGS_HANDLE)arg;
+
+//	bufferevent_read(buf_bev, &stSipNode, sizeof(SIP_NODE_OBJ));
+
+	printf("#####sip_pair_read_cb() recv recv from stream moudle!\n");
+	switch (pRecvFromStreamBevArg->enumCmdType)
+	{
+		case STOP:
+		{
+			SIP_NODE_HANDLE pSipNode = find_node_from_sip_hash_table(glSipHashTable, pRecvFromStreamBevArg->cCallId);
+			if (NULL != pSipNode)
+			{
+				TRACE_ERR("\n*************************** recv del client from STREAM bev\n");
+				del_node_from_sip_hash_table(glSipHashTable, pSipNode);
+				free(pSipNode);
+				pSipNode = NULL;
+			}
+		}
+			break;
+		default:
+			break;
+	}
+
+
+
+}
+
+
 
 static HB_S32 build_response_default(osip_message_t ** dest, osip_dialog_t * dialog, int status, osip_message_t * request)
 {
@@ -216,6 +250,8 @@ static HB_S32 parase_invite(osip_message_t ** pSipMsg, SIP_DEV_ARGS_HANDLE pSipD
 	strncpy(pSipDevInfo->cDevSn, pUserName, sizeof(pSipDevInfo->cDevSn));
 	strncpy(pSipDevInfo->cPushIp, pAddress, sizeof(pSipDevInfo->cPushIp));
 
+//	printf("pSipDevInfo->cPushIp=%s\n", pSipDevInfo->cPushIp);
+
 	const HB_CHAR *ssrc = sdp_y_get(pSdp);
 	if (NULL != ssrc)
 	{
@@ -369,6 +405,7 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 				snprintf(cTmpContact, sizeof(cTmpContact), "<sip:%s@%s:5060>", pContact->url->username, LOCAL_IP);
 				osip_message_set_contact(pResponseMsg, cTmpContact);
 				printf("contact : [%s]\n", cTmpContact);
+#if 0
 				snprintf(cResponseBody, sizeof(cResponseBody), "v=0\r\n"
 								"o=%s 0 0 IN IP4 %s\r\n"
 								"s=Play\r\n"
@@ -379,6 +416,19 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 								"a=recvonly\r\n"
 								"a=rtpmap:96 PS/90000\r\n"
 								"y=%s\r\n\r\n", pSipNode->cSipDevSn, LOCAL_IP, LOCAL_IP, pSipNode->iStreamType, pSipNode->cSsrc);
+#endif
+
+				snprintf(cResponseBody, sizeof(cResponseBody), "v=0\r\n"
+								"o=%s 0 0 IN IP4 %s\r\n"
+								"s=Play\r\n"
+								"c=IN IP4 %s\r\n"
+								"t=0 0\r\n"
+								"m=video %d RTP/AVP 96\r\n"
+								"a=streamMode:%d\r\n"
+								"a=sendonly\r\n"
+								"a=rtpmap:96 PS/90000\r\n"
+								"y=%u\r\n\r\n", pSipNode->cSipDevSn, pSipNode->cPushIp, LOCAL_IP, pSipNode->iUdpSendStreamPort, pSipNode->iStreamType, pSipNode->u32Ssrc);
+
 				osip_message_set_body(pResponseMsg, cResponseBody, strlen(cResponseBody));
 				osip_message_to_str(pResponseMsg, &pTmpBufDest, (size_t *) &iMessageLen);
 
@@ -389,7 +439,7 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 				}
 				osip_message_free(pResponseMsg);
 				pResponseMsg = NULL;
-				TRACE_GREEN("response len=%d, buf=[%s]\n", iMessageLen, pTmpBufDest);
+				TRACE_GREEN("response INVITE MessageLen=%d, buf=[%s]\n", iMessageLen, pTmpBufDest);
 			}
 			break;
 		}
@@ -397,7 +447,7 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 		{
 			if (HB_SUCCESS == parase_ack_bye(pSipMsg, &stSipDevInfo))
 			{
-				SIP_NODE_HANDLE pSipNode = find_node_from_sip_hash_table(glSipHashTable, &stSipDevInfo);
+				SIP_NODE_HANDLE pSipNode = find_node_from_sip_hash_table(glSipHashTable, stSipDevInfo.cCallId);
 				if (NULL == pSipNode)
 				{
 					break;
@@ -427,7 +477,7 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 				pResponseMsg = NULL;
 				TRACE_GREEN("response bye len=%d, buf=[%s]\n", iMessageLen, pTmpBufDest);
 
-				SIP_NODE_HANDLE pSipNode = find_node_from_sip_hash_table(glSipHashTable, &stSipDevInfo);
+				SIP_NODE_HANDLE pSipNode = find_node_from_sip_hash_table(glSipHashTable, stSipDevInfo.cCallId);
 				if (NULL != pSipNode)
 				{
 					pSipNode->enumCmdType = STOP;
@@ -450,9 +500,78 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 }
 
 
-static void timeout_cb(evutil_socket_t iSockFd, HB_S16 iEvents, HB_HANDLE hArg)
+static HB_VOID timeout_cb(evutil_socket_t iSockFd, HB_S16 iEvents, HB_HANDLE hArg)
 {
 	printf("curtain time : %ld.\n", time(NULL));
+}
+
+
+
+static HB_S32 get_current_process_mem(pid_t p)
+{
+    HB_CHAR file[64] = {0};//文件名
+    HB_CHAR line_buff[256] = {0};  //读取行的缓冲区
+    HB_CHAR name[32];//存放项目名称
+    HB_CHAR *tmp_p = NULL;
+    //获取vmrss:实际物理内存占用
+    HB_S32 i = 0;
+    HB_S32 vmrss = 0;//存放内存
+    FILE *fd;         //定义文件指针fd
+
+    sprintf(file,"/proc/%d/status",p);
+   // fprintf (stderr, "current pid:%d\n", p);
+    fd = fopen (file, "r"); //以R读的方式打开文件再赋给指针fd
+    if(NULL == fd)
+    {
+    	return HB_FAILURE;
+    }
+    //读取VmRSS这一行的数据
+    for (i=0;i<VMRSS_LINE-1;i++)
+    {
+    	tmp_p = fgets (line_buff, sizeof(line_buff), fd);
+    	if(NULL == tmp_p)
+        {
+    		fclose(fd);
+        	return HB_FAILURE;
+        }
+    }
+    tmp_p  = fgets (line_buff, sizeof(line_buff), fd);
+	if(NULL == tmp_p)
+    {
+		fclose(fd);
+    	return HB_FAILURE;
+    }
+    if(-1 == sscanf (line_buff, "%s %d", name,&vmrss))
+    {
+		fclose(fd);
+    	return HB_FAILURE;
+    }
+    //fprintf (stderr, "====%s：%d====\n", name,vmrss);
+    fclose(fd);
+    return vmrss;
+}
+
+static HB_VOID *scanning_task(HB_VOID *param)
+{
+	HB_S32 total_events_num = 0;
+	HB_S32 current_process_used_mem = 0;
+#if USE_PTHREAD_POOL
+	struct pool_stat rtsp_pool_stat;
+#endif
+	while (1)
+	{
+		sleep(5);
+		total_events_num = event_base_get_num_events(pEventBase, EVENT_BASE_COUNT_ADDED);//获取base中活跃event的数量
+		current_process_used_mem = get_current_process_mem(getpid());
+#if USE_PTHREAD_POOL
+	    stpool_stat(gb_thread_pool, &rtsp_pool_stat);
+		printf("\n############ UsedMem=%d  TotalEvents=%d  PoolTotalThread=%d  PoolActiveThread=%d\n", current_process_used_mem, total_events_num,
+				rtsp_pool_stat.curthreads, rtsp_pool_stat.curthreads_active);
+#else
+		printf("\n############ UsedMem=%d  TotalEvents=%d \n", current_process_used_mem, total_events_num);
+#endif
+	}
+	return NULL;
 }
 
 /*
@@ -552,19 +671,19 @@ HB_S32 start_sip_moudle()
 
 		list_init(&(pStreamNode->listClientNodeHead));
 
-		RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE)calloc(1, sizeof(RTP_CLIENT_TRANSPORT_OBJ));
-		client_node->stUdpVideoInfo.cli_ports.RTP = 10000+i;
-		client_node->iUdpVideoFd = socket(AF_INET, SOCK_DGRAM, 0);
-		if (client_node->iUdpVideoFd < 0)
+		RTP_CLIENT_TRANSPORT_HANDLE pClientNode = (RTP_CLIENT_TRANSPORT_HANDLE)calloc(1, sizeof(RTP_CLIENT_TRANSPORT_OBJ));
+		pClientNode->stUdpVideoInfo.cli_ports.RTP = 10000+i;
+		pClientNode->iUdpVideoFd = socket(AF_INET, SOCK_DGRAM, 0);
+		if (pClientNode->iUdpVideoFd < 0)
 		{
 			fprintf(stderr, "Socket Error:%s\n", strerror(errno));
 		}
 
-		bzero(&(client_node->stUdpVideoInfo.rtp_peer), sizeof(struct sockaddr_in));
-		client_node->stUdpVideoInfo.rtp_peer.sin_family = AF_INET;
-		client_node->stUdpVideoInfo.rtp_peer.sin_port = htons(client_node->stUdpVideoInfo.cli_ports.RTP);
-		inet_aton("172.16.1.250", &(client_node->stUdpVideoInfo.rtp_peer.sin_addr));
-		list_append(&(pStreamNode->listClientNodeHead), client_node);
+		bzero(&(pClientNode->stUdpVideoInfo.rtp_peer), sizeof(struct sockaddr_in));
+		pClientNode->stUdpVideoInfo.rtp_peer.sin_family = AF_INET;
+		pClientNode->stUdpVideoInfo.rtp_peer.sin_port = htons(pClientNode->stUdpVideoInfo.cli_ports.RTP);
+		inet_aton("172.16.1.250", &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
+		list_append(&(pStreamNode->listClientNodeHead), pClientNode);
 
 		play_rtsp_video_from_box(pStreamNode);
 
@@ -584,6 +703,15 @@ HB_S32 start_sip_moudle()
 	bufferevent_enable(sip_stream_msg_pair[1], EV_READ);
 //	bufferevent_setcb(sip_stream_msg_pair[0], sip_read_cb, NULL, NULL, NULL);
 //	bufferevent_enable(sip_stream_msg_pair[0], EV_READ | EV_PERSIST);
+
+
+	//任务扫描线程
+	pthread_attr_t attr;
+	pthread_t scanning_pthread_id;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+	pthread_create(&scanning_pthread_id, &attr, scanning_task, NULL);
+	pthread_attr_destroy(&attr);
 
 	event_base_dispatch(pEventBase);
 	event_base_free(pEventBase);
