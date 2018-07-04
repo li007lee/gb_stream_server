@@ -21,7 +21,7 @@ SIP_HASH_TABLE_HANDLE glSipHashTable = NULL;
 STREAM_HASH_TABLE_HANDLE glStreamHashTable = NULL;
 struct bufferevent *sip_stream_msg_pair[2];
 struct event_base *pEventBase;
-stpool_t *gb_thread_pool;
+stpool_t *glGbThreadPool;
 
 
 HB_VOID sip_pair_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
@@ -564,7 +564,7 @@ static HB_VOID *scanning_task(HB_VOID *param)
 		total_events_num = event_base_get_num_events(pEventBase, EVENT_BASE_COUNT_ADDED);//获取base中活跃event的数量
 		current_process_used_mem = get_current_process_mem(getpid());
 #if USE_PTHREAD_POOL
-	    stpool_stat(gb_thread_pool, &rtsp_pool_stat);
+	    stpool_stat(glGbThreadPool, &rtsp_pool_stat);
 		printf("\n############ UsedMem=%d  TotalEvents=%d  PoolTotalThread=%d  PoolActiveThread=%d\n", current_process_used_mem, total_events_num,
 				rtsp_pool_stat.curthreads, rtsp_pool_stat.curthreads_active);
 #else
@@ -619,9 +619,9 @@ HB_S32 start_sip_moudle()
 	//MIN_THREADS	     -创建线程池后启动的线程数
 	//0,	   				  -do not suspend the pool
 	//1,	   				   -优先级队列数
-	gb_thread_pool = stpool_create("rtsp_server_pool", eCAPs, MAX_THREADS, MIN_THREADS, 0, 1);
+	glGbThreadPool = stpool_create("rtsp_server_pool", eCAPs, MAX_THREADS, MIN_THREADS, 0, 1);
 	//rtsp_pool = stpool_create("rtsp_server_pool", eCAPs, atoi(argv[2])+10, atoi(argv[2]), 0, 1);
-	if (!gb_thread_pool)
+	if (!glGbThreadPool)
 	{
 		TRACE_ERR("###### create pthread pool  err!");
 		return HB_FAILURE;

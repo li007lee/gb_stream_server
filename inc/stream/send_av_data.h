@@ -15,7 +15,7 @@
 
 //#include "rtsp/rtsp.h"
 #include "stpool/stpool.h"
-#include "../stream_hash.h"
+#include "stream_hash.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // RTP方式发送数据时TCP头中的通道ID
@@ -30,9 +30,9 @@ typedef enum _tagCHANNEL_ID
 
 typedef struct _tagQUEUE_ARGS
 {
-	HB_S32   data_pre_buf_size;
-	HB_S32   data_len;
-	HB_CHAR  *data_buf;
+	HB_S32   iDataPreBufSize;
+	HB_S32   iDataLen;
+	HB_CHAR  *pDataBuf;
 }QUEUE_ARGS_OBJ, *QUEUE_ARGS_HANDLE;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -45,8 +45,7 @@ typedef struct _tagQUEUE_ARGS
 // 返回值：成功返回发送的字节数，出错返回-1
 // 说  明：  
 ////////////////////////////////////////////////////////////////////////////////
-int send_data_over_udp(HB_S32 fd, struct sockaddr *rtp_peer,
-	char *rtp_buf, unsigned int rtp_size);
+int send_data_over_udp(HB_S32 fd, struct sockaddr *rtp_peer, char *rtp_buf, unsigned int rtp_size);
 
 
 HB_VOID send_rtp_to_client_task_err_cb(struct sttask *ptask, long iReasons);

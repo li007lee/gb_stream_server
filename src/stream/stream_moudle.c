@@ -14,8 +14,8 @@
 #include "event2/util.h"
 #include "event2/event_compat.h"
 
-#include "stream_moudle.h"
-#include "../stream_hash.h"
+#include "stream/stream_moudle.h"
+#include "stream_hash.h"
 #include "common_args.h"
 #include "server_config.h"
 HB_VOID sip_pair_read_cb(struct bufferevent *buf_bev, HB_VOID *arg);
@@ -70,8 +70,6 @@ static HB_VOID udp_rtcp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDL
 				event_loopbreak();
 				return;
 			}
-//			struct timeval tv = {RTCP_TIMEOUT, 0};
-//			event_add(&(pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent), &tv);
 			TRACE_YELLOW("######################recv recv  rtcp rtcp rtcp rtcp [%s]!!!!!!!!!!!!!!!!!!\n", cRecvBuf);
 			break;
 		}
@@ -100,7 +98,7 @@ static HB_VOID udp_send_rtcp_timer(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HA
 		iSrLen = rtcp_sr_pack(pClientNode, cRtcpBuf, sizeof(cRtcpBuf));
 		iSdesLen = rtcp_sdes_pack(pClientNode, cRtcpBuf+iSrLen, 512-iSrLen);
 		sendto(pClientNode->stUdpVideoInfo.iUdpRtcpSockFd, cRtcpBuf, iSrLen+iSdesLen, 0, (struct sockaddr*)(&(pClientNode->stUdpVideoInfo.rtcp_peer)), (socklen_t)(sizeof(struct sockaddr_in)));
-		printf("send rtcp to peer  [%d]:[%d]\n", pClientNode->stUdpVideoInfo.cli_ports.RTCP, pClientNode->stUdpVideoInfo.ser_ports.RTCP);
+		printf("send rtcp to peer  [%d] to [%d]\n", pClientNode->stUdpVideoInfo.ser_ports.RTCP, pClientNode->stUdpVideoInfo.cli_ports.RTCP);
 		struct timeval tv = {RTCP_RECV_TIMEOUT, 0};
 		if (NULL == pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent)
 		{
@@ -126,7 +124,7 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 		case PLAY:
 		{
 			pStreamNode = insert_node_to_stream_hash_table(glStreamHashTable, &stSipNode);
-			HB_S32 uHashValue = pStreamNode->iStreamNodeHashValue;
+			HB_S32 uHashValue = pStreamNode->uStreamNodeHashValue;
 			pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 			//查找客户节点
 			RTP_CLIENT_TRANSPORT_HANDLE pClientNode = find_client_node(pStreamNode, stSipNode.cCallId);

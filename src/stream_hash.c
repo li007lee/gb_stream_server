@@ -34,7 +34,7 @@ static HB_S32 find_dev_id_chnl_stream_key(const HB_VOID *el, const HB_VOID *key)
 static STREAM_NODE_HANDLE create_stream_node(STREAM_HASH_TABLE_HANDLE pHashTable, HB_U32 uHashValue, SIP_NODE_HANDLE pSipNode)
 {
 	STREAM_NODE_HANDLE pStreamNode = (STREAM_NODE_HANDLE)calloc(1, sizeof(STREAM_NODE_OBJ));
-	pStreamNode->iStreamNodeHashValue = uHashValue;
+	pStreamNode->uStreamNodeHashValue = uHashValue;
 	strncpy(pStreamNode->cDevId, pSipNode->cDevId, sizeof(pStreamNode->cDevId));
 	pStreamNode->iDevChnl = pSipNode->iDevChnl;
 	pStreamNode->iStreamType = pSipNode->iStreamType;
@@ -99,13 +99,9 @@ STREAM_NODE_HANDLE find_node_from_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHa
 
 HB_VOID del_node_from_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHashTable, STREAM_NODE_HANDLE pStreamNode)
 {
-	HB_U32 uHashValue = pStreamNode->iStreamNodeHashValue;
+	HB_U32 uHashValue = pStreamNode->uStreamNodeHashValue;
 	printf("\nDDDDDDDDDD  DelNodeFromDevHashTable cDevId=[%s], uStreamHashTableLen=[%d]\n", pStreamNode->cDevId, pHashTable->uStreamHashTableLen);
-
-//	pthread_mutex_lock(&(pHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 	list_delete(&(pHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), pStreamNode);
-//	pthread_mutex_unlock(&(pHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
-	return;
 }
 
 

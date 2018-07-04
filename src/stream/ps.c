@@ -11,7 +11,7 @@
 /////////////////////////////////////////////////////////////////////////////////
 
 #include "my_include.h"
-#include "ps.h"
+#include "stream/ps.h"
 
 #define MARKER_BIT   		(1)
 

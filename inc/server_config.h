@@ -33,6 +33,7 @@
 #define MAX_THREADS    (2500)   //线程数上限
 #define MIN_THREADS     (500)     //最小启动线程数
 
+#define MAX_RTP_PACKET_SIZE (1448) //1500(max) - 20(IP header) - 20(TCP header) - 12or14(RTP header)
 #define RTCP_SEND_TIMER	(15)	//用于发送rtcp消息的定时器时间 单位秒
 #define RTCP_RECV_TIMEOUT	(20) //接收对端rtcp返回消息的超时时间 单位秒
 

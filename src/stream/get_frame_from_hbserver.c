@@ -4,19 +4,18 @@
  *  Created on: 2016年11月23日
  *      Author: root
  */
-#include "../sip_hash.h"
 #include "my_include.h"
-#include "get_frame.h"
-#include "send_av_data.h"
-#include "server_config.h"
-//#include "common/mp4_encode.h"
 #include "event.h"
-//#include "jemalloc/jemalloc.h"
 #include "lf_queue.h"
 #include "event2/bufferevent.h"
 
+#include "server_config.h"
+#include "sip_hash.h"
+#include "stream/get_frame.h"
+#include "stream/send_av_data.h"
+
 extern STREAM_HASH_TABLE_HANDLE glStreamHashTable;
-extern stpool_t *gb_thread_pool;
+extern stpool_t *glGbThreadPool;
 
 HB_S32 SendDataToStream(struct bufferevent *bev, HB_CHAR *pCmd, HB_S32 nLength, HB_S32 nDataType)
 {
@@ -88,106 +87,26 @@ HB_S32 SendDataToStream(struct bufferevent *bev, HB_CHAR *pCmd, HB_S32 nLength, 
 	return iSendBytes;
 }
 
-#if 0
-static HB_S32 delet_rtp_data_list(list_t *p_stream_data_node_head)
-{
-	HB_S32 data_node_nums = 0;
-	HB_CHAR *data_node = NULL;
-	data_node_nums = list_size(p_stream_data_node_head);
-	while(data_node_nums)
-	{
-		data_node = list_get_at(p_stream_data_node_head, 0);
-		list_delete(p_stream_data_node_head, data_node);
-		free(data_node);
-		data_node_nums--;
-	}
-	list_destroy(p_stream_data_node_head);
-	return 0;
-}
-#endif
 
-static HB_VOID delete_rtp_data_list(lf_queue pQueue)
+static HB_VOID clear_rtp_data_from_queue(lf_queue pQueue)
 {
 	QUEUE_ARGS_OBJ stQueueOut;
 	while (nolock_queue_len(pQueue) > 0)
 	{
 		nolock_queue_pop(pQueue, &stQueueOut);
-		if (stQueueOut.data_buf != NULL)
+		if (stQueueOut.pDataBuf != NULL)
 		{
 #if JE_MELLOC_FUCTION
-			je_free(queue_out.data_buf);
+			je_free(queue_out.pDataBuf);
 #else
-			free(stQueueOut.data_buf);
+			free(stQueueOut.pDataBuf);
 #endif
-			stQueueOut.data_buf = NULL;
+			stQueueOut.pDataBuf = NULL;
 		}
 	}
 	return;
 }
 
-static HB_S32 destroy_client_rtp_list(list_t *listClientNodeHead)
-{
-	HB_S32 iClientNums = 0;
-	RTP_CLIENT_TRANSPORT_HANDLE pClientNode = NULL;
-	iClientNums = list_size(listClientNodeHead);
-	while (iClientNums)
-	{
-		pClientNode = list_get_at(listClientNodeHead, 0);
-		list_delete(listClientNodeHead, pClientNode);
-		if (pClientNode->pSendStreamBev != NULL)
-		{
-			bufferevent_disable(pClientNode->pSendStreamBev, EV_READ | EV_WRITE);
-			bufferevent_free(pClientNode->pSendStreamBev);
-			pClientNode->pSendStreamBev = NULL;
-		}
-		if (pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent != NULL)
-		{
-			event_del(pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent);
-			pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent = NULL;
-		}
-		if (pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent != NULL)
-		{
-			event_del(pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent);
-			pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent = NULL;
-		}
-		if (pClientNode->hEventArgs != NULL)
-		{
-			free(pClientNode->hEventArgs);
-			pClientNode->hEventArgs = NULL;
-		}
-		if (pClientNode->stUdpVideoInfo.iUdpVideoFd > 0)
-		{
-			close(pClientNode->stUdpVideoInfo.iUdpVideoFd);
-			pClientNode->stUdpVideoInfo.iUdpVideoFd = -1;
-		}
-		if (pClientNode->stUdpVideoInfo.iUdpRtcpSockFd > 0)
-		{
-			close(pClientNode->stUdpVideoInfo.iUdpRtcpSockFd);
-			pClientNode->stUdpVideoInfo.iUdpRtcpSockFd = -1;
-		}
-		free(pClientNode);
-		pClientNode = NULL;
-		iClientNums--;
-	}
-	list_destroy(listClientNodeHead);
-	return 0;
-}
-
-static HB_S32 disable_client_rtp_list_bev(list_t *listClientNodeHead)
-{
-	HB_S32 iClientNums = 0;
-	iClientNums = list_size(listClientNodeHead);
-	while (iClientNums)
-	{
-		RTP_CLIENT_TRANSPORT_HANDLE pClientNode = list_get_at(listClientNodeHead, iClientNums - 1);
-		if (pClientNode->pSendStreamBev != NULL)
-		{
-			bufferevent_disable(pClientNode->pSendStreamBev, EV_READ | EV_WRITE);
-		}
-		iClientNums--;
-	}
-	return 0;
-}
 
 void recv_stream_cb(struct bufferevent *pConnectHbServerBev, HB_VOID *event_args)
 {
@@ -226,15 +145,16 @@ void recv_stream_cb(struct bufferevent *pConnectHbServerBev, HB_VOID *event_args
 			if ((0 == pStreamNode->uRtpClientNodeSendDataThreadFlag) && (1 == stPackage.byFrameType))
 			{
 #if USE_PTHREAD_POOL
-				pStpoolTask = stpool_task_new(gb_thread_pool, "send_rtp_to_client_task", send_rtp_to_client_task,
+				pStpoolTask = stpool_task_new(glGbThreadPool, "send_rtp_to_client_task", send_rtp_to_client_task,
 								send_rtp_to_client_task_err_cb, pStreamNode);
-				HB_S32 iError = stpool_task_set_p(pStpoolTask, gb_thread_pool);
+				HB_S32 iError = stpool_task_set_p(pStpoolTask, glGbThreadPool);
 				if (iError)
 				{
 					printf("***Err: %d(%s). (try eCAP_F_CUSTOM_TASK)\n", iError, stpool_strerror(iError));
-					uHashValue = pStreamNode->iStreamNodeHashValue;
-					destroy_client_rtp_list(&(pStreamNode->listClientNodeHead)); //释放rtp客户队列
-					delete_rtp_data_list(pStreamNode->queueStreamData); //释放视频队列
+					uHashValue = pStreamNode->uStreamNodeHashValue;
+					pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
+					destory_client_list(&(pStreamNode->listClientNodeHead)); //释放rtp客户队列
+					clear_rtp_data_from_queue(pStreamNode->queueStreamData); //释放视频队列
 					nolock_queue_destroy(&(pStreamNode->queueStreamData));
 					if (pStreamNode->hGetStreamFromSource != NULL)
 					{
@@ -243,6 +163,7 @@ void recv_stream_cb(struct bufferevent *pConnectHbServerBev, HB_VOID *event_args
 					}
 					free(pStreamNode);
 					pStreamNode = NULL;
+					pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 					return;
 				}
 				else
@@ -326,14 +247,14 @@ void recv_stream_cb(struct bufferevent *pConnectHbServerBev, HB_VOID *event_args
 			HB_S32 rtp_data_buf_len = iDataLen + iRtpDataBufPreSize;
 			QUEUE_ARGS_OBJ stQueueArg;
 #if JE_MELLOC_FUCTION
-			stQueueArg.data_buf = (HB_CHAR*)je_malloc(rtp_data_buf_len + sizeof(BOX_CTRL_CMD_OBJ));
+			stQueueArg.pDataBuf = (HB_CHAR*)je_malloc(rtp_data_buf_len + sizeof(BOX_CTRL_CMD_OBJ));
 #else
-			stQueueArg.data_buf = (HB_CHAR*) malloc(rtp_data_buf_len + sizeof(BOX_CTRL_CMD_OBJ));
+			stQueueArg.pDataBuf = (HB_CHAR*) malloc(rtp_data_buf_len + sizeof(BOX_CTRL_CMD_OBJ));
 #endif
-			stQueueArg.data_len = iDataLen + sizeof(BOX_CTRL_CMD_OBJ);
-			stQueueArg.data_pre_buf_size = iRtpDataBufPreSize;
-			memcpy(stQueueArg.data_buf + iRtpDataBufPreSize, &stCmdHead, sizeof(BOX_CTRL_CMD_OBJ));
-			memcpy(stQueueArg.data_buf + iRtpDataBufPreSize + 32, pStreamNode->hGetStreamFromSource, pStreamNode->iRecvStreamDataLen);
+			stQueueArg.iDataLen = iDataLen + sizeof(BOX_CTRL_CMD_OBJ);
+			stQueueArg.iDataPreBufSize = iRtpDataBufPreSize;
+			memcpy(stQueueArg.pDataBuf + iRtpDataBufPreSize, &stCmdHead, sizeof(BOX_CTRL_CMD_OBJ));
+			memcpy(stQueueArg.pDataBuf + iRtpDataBufPreSize + 32, pStreamNode->hGetStreamFromSource, pStreamNode->iRecvStreamDataLen);
 			nolock_queue_push(pStreamNode->queueStreamData, &stQueueArg);
 			pStreamNode->iRecvStreamDataLen = 0;
 #endif
@@ -344,16 +265,16 @@ void recv_stream_cb(struct bufferevent *pConnectHbServerBev, HB_VOID *event_args
 	//发生异常
 	bufferevent_free(pConnectHbServerBev);
 	pConnectHbServerBev = NULL;
-	uHashValue = pStreamNode->iStreamNodeHashValue;
+	uHashValue = pStreamNode->uStreamNodeHashValue;
 	//printf("\n@@@@@@@@@@@@@@@@@@  recv_stream_cb() err  ret=%d\n", ret);
 	if (0 == pStreamNode->uRtpClientNodeSendDataThreadFlag)	//rtp发送线程还未启动
 	{
 		TRACE_ERR("recv_stream_cb()   uRtpClientNodeSendDataThreadFlag = 0");
 		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 		list_delete(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), pStreamNode);
-		destroy_client_rtp_list(&(pStreamNode->listClientNodeHead));	//释放rtp客户队列
+		destory_client_list(&(pStreamNode->listClientNodeHead));	//释放rtp客户队列
 		pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
-		delete_rtp_data_list(pStreamNode->queueStreamData);	//释放视频队列
+		clear_rtp_data_from_queue(pStreamNode->queueStreamData);	//释放视频队列
 		nolock_queue_destroy(&(pStreamNode->queueStreamData));
 		if (pStreamNode->hGetStreamFromSource != NULL)
 		{
@@ -401,11 +322,14 @@ HB_VOID recv_stream_err_cb(struct bufferevent *pConnectHbserverBev, HB_S16 event
 	//发生异常
 	bufferevent_free(pConnectHbserverBev);
 	pConnectHbserverBev = NULL;
+	HB_U32 uHashValue = 0;
+	uHashValue = pStreamNode->uStreamNodeHashValue;
 	if (0 == pStreamNode->uRtpClientNodeSendDataThreadFlag) //rtp发送线程还未启动
 	{
 		TRACE_ERR("recv_stream_err_cb()   uRtpClientNodeSendDataThreadFlag = 0");
-		destroy_client_rtp_list(&(pStreamNode->listClientNodeHead)); //释放rtp客户队列
-		delete_rtp_data_list(pStreamNode->queueStreamData); //释放视频队列
+		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
+		destory_client_list(&(pStreamNode->listClientNodeHead)); //释放rtp客户队列
+		clear_rtp_data_from_queue(pStreamNode->queueStreamData); //释放视频队列
 		nolock_queue_destroy(&(pStreamNode->queueStreamData));
 		if (pStreamNode->hGetStreamFromSource != NULL)
 		{
@@ -414,11 +338,11 @@ HB_VOID recv_stream_err_cb(struct bufferevent *pConnectHbserverBev, HB_S16 event
 		}
 		free(pStreamNode);
 		pStreamNode = NULL;
+		pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 	}
 	else if ((1 == pStreamNode->uRtpClientNodeSendDataThreadFlag) || (2 == pStreamNode->uRtpClientNodeSendDataThreadFlag)) //如果rtp节点发送线程已经启动,这里只是把节点摘除，并不释放，由rtp发送线程释放
 	{
-		HB_U32 uHashValue = 0;
-		uHashValue = pStreamNode->iStreamNodeHashValue;
+
 		TRACE_ERR("recv_stream_err_cb()   uRtpClientNodeSendDataThreadFlag = %d\n", pStreamNode->uRtpClientNodeSendDataThreadFlag);
 		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 		disable_client_rtp_list_bev(&(pStreamNode->listClientNodeHead));
@@ -495,11 +419,11 @@ HB_VOID recv_cmd_from_hbserver(struct bufferevent *pConnectHbserverBev, HB_VOID 
 
 	bufferevent_free(pConnectHbserverBev);
 	pConnectHbserverBev = NULL;
-	HB_U32 uHashValue = pStreamNode->iStreamNodeHashValue;
+	HB_U32 uHashValue = pStreamNode->uStreamNodeHashValue;
 	pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 	del_node_from_stream_hash_table(glStreamHashTable, pStreamNode);
 	TRACE_ERR("recv recv :[%s]\n", pStreamNode->hGetStreamFromSource);
-	destroy_client_rtp_list(&(pStreamNode->listClientNodeHead)); //释放rtp客户队列
+	destory_client_list(&(pStreamNode->listClientNodeHead)); //释放rtp客户队列
 	if (pStreamNode->hGetStreamFromSource != NULL)
 	{
 		free(pStreamNode->hGetStreamFromSource);
@@ -561,10 +485,10 @@ HB_VOID connect_event_cb(struct bufferevent *connect_hbserver_bev, HB_S16 iEvent
 	{
 		//从汉邦服务器或者盒子获取流的线程还没有启动,所有节点资源在这里直接释放
 		printf("\nbbb\n");
-		HB_U32 uHashValue = pStreamNode->iStreamNodeHashValue;
+		HB_U32 uHashValue = pStreamNode->uStreamNodeHashValue;
 		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 		del_node_from_stream_hash_table(glStreamHashTable, pStreamNode);
-		destroy_client_rtp_list(&(pStreamNode->listClientNodeHead)); //释放rtp客户队列
+		destory_client_list(&(pStreamNode->listClientNodeHead)); //释放rtp客户队列
 		free(pStreamNode);
 		pStreamNode=NULL;
 		pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));

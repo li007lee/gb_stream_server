@@ -5,9 +5,8 @@
  *      Author: root
  */
 
-#include "rtp_pack.h"
-
-#include "../stream_hash.h"
+#include "stream/rtp_pack.h"
+#include "stream_hash.h"
 
 extern STREAM_HASH_TABLE_HANDLE glStreamHashTable;
 
@@ -380,7 +379,7 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 HB_U32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
 {
 	HB_S32 addr_len = sizeof(struct sockaddr_in);
-	HB_S32 hash_value = p_stream_node->iStreamNodeHashValue;
+	HB_S32 hash_value = p_stream_node->uStreamNodeHashValue;
 	HB_U32 left_bytes = 0;
 	HB_U32 cur_data_size = 0;
 	HB_U32 end_of_frame = 0;
@@ -439,45 +438,11 @@ HB_U32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 				}
 				else if (pClientNode->iDeleteFlag == 1)
 				{
-					printf("del client from list\n");
 					pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
-					list_delete(&(p_stream_node->listClientNodeHead), pClientNode);
-					pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
-
-					if (pClientNode->pSendStreamBev != NULL)
-					{
-						bufferevent_free(pClientNode->pSendStreamBev);
-						pClientNode->pSendStreamBev = NULL;
-					}
-					if (pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent != NULL)
-					{
-						event_del(pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent);
-						pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent = NULL;
-					}
-					if (pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent != NULL)
-					{
-						event_del(pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent);
-						pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent = NULL;
-					}
-					if (pClientNode->hEventArgs != NULL)
-					{
-						free(pClientNode->hEventArgs);
-						pClientNode->hEventArgs = NULL;
-					}
-					if (pClientNode->stUdpVideoInfo.iUdpVideoFd > 0)
-					{
-						close(pClientNode->stUdpVideoInfo.iUdpVideoFd);
-						pClientNode->stUdpVideoInfo.iUdpVideoFd = -1;
-					}
-					if (pClientNode->stUdpVideoInfo.iUdpRtcpSockFd > 0)
-					{
-						close(pClientNode->stUdpVideoInfo.iUdpRtcpSockFd);
-						pClientNode->stUdpVideoInfo.iUdpRtcpSockFd = -1;
-					}
-
+					del_one_client_node(&(p_stream_node->listClientNodeHead), pClientNode);
 					free(pClientNode);
 					pClientNode = NULL;
-					printf("del client from list ok\n");
+					pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[hash_value].lockStreamNodeMutex));
 					client_list_size--;
 					--i;
 				}

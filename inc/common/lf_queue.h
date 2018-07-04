@@ -52,5 +52,4 @@ void nolock_queue_destroy(lf_queue *queue);
 }
 # endif
 
-
 #endif

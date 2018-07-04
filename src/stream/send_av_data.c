@@ -11,16 +11,12 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "my_include.h"
 #include "event.h"
-#include "send_av_data.h"
+#include "stream/send_av_data.h"
 #include "server_config.h"
 #include "hash_table.h"
 #include "lf_queue.h"
-#include "ps.h"
-
-#include "rtcp_pack.h"
-//#include "jemalloc/jemalloc.h"
-
-//#include "common/elr_mpl.h"
+#include "stream/ps.h"
+#include "stream/rtcp_pack.h"
 
 extern STREAM_HASH_TABLE_HANDLE glStreamHashTable;
 
@@ -95,66 +91,25 @@ static HB_S32 destroy_client_rtp_list(list_t *listClientNodeHead)
 }
 #endif
 
-static HB_S32 destroy_client_rtp_list(list_t *listClientNodeHead)
-{
-	HB_S32 iClientNums = 0;
-	RTP_CLIENT_TRANSPORT_HANDLE pClientNode = NULL;
-	iClientNums = list_size(listClientNodeHead);
-	while (iClientNums)
-	{
-		//printf("\n*********************    list size=[%d]\n", list_size(listClientNodeHead));
-		pClientNode = list_get_at(listClientNodeHead, 0);
-		list_delete(listClientNodeHead, pClientNode);
-		if (pClientNode->pSendStreamBev != NULL)
-		{
-			bufferevent_free(pClientNode->pSendStreamBev);
-			pClientNode->pSendStreamBev = NULL;
-		}
-		if (pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent != NULL)
-		{
-			event_del(pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent);
-			pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent = NULL;
-		}
-		if (pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent != NULL)
-		{
-			event_del(pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent);
-			pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent = NULL;
-		}
-		if (pClientNode->hEventArgs != NULL)
-		{
-			free(pClientNode->hEventArgs);
-			pClientNode->hEventArgs = NULL;
-		}
-		if (pClientNode->stUdpVideoInfo.iUdpVideoFd > 0)
-		{
-			close(pClientNode->stUdpVideoInfo.iUdpVideoFd);
-			pClientNode->stUdpVideoInfo.iUdpVideoFd = -1;
-		}
-		free(pClientNode);
-		pClientNode = NULL;
-		iClientNums--;
-	}
-	list_destroy(listClientNodeHead);
-	return 0;
-}
 
-static HB_VOID delete_rtp_data_list(lf_queue pQueue)
+
+static HB_VOID clear_rtp_data_from_queue(lf_queue queue)
 {
 	QUEUE_ARGS_OBJ stQueueOut;
-	while (nolock_queue_len(pQueue) > 0)
+	while (nolock_queue_len(queue) > 0)
 	{
-		nolock_queue_pop(pQueue, &stQueueOut);
-		if (stQueueOut.data_buf != NULL)
+		nolock_queue_pop(queue, &stQueueOut);
+		if (stQueueOut.pDataBuf != NULL)
 		{
 #if JE_MELLOC_FUCTION
-			je_free(queue_out.data_buf);
+			je_free(stQueueOut.pDataBuf);
 #else
-			free(stQueueOut.data_buf);
+			free(stQueueOut.pDataBuf);
 #endif
-			stQueueOut.data_buf = NULL;
+			stQueueOut.pDataBuf = NULL;
 		}
 	}
-	printf("\n***************     queue size = [%d]\n", nolock_queue_len(pQueue));
+	printf("\n***************     queue size = [%d]\n", nolock_queue_len(queue));
 	return;
 }
 
@@ -252,8 +207,8 @@ HB_VOID send_rtp_to_client_task(struct sttask *pStpoolTask)
 		//pVideoDataNode = list_get_at(&(pStreamNode->stream_data_node_head), 0);
 		QUEUE_ARGS_OBJ stQueueOut;
 		iRet = nolock_queue_pop(pStreamNode->queueStreamData, &stQueueOut);
-		pVideoDataNode = stQueueOut.data_buf;
-		iRtpDataBufPreSize = stQueueOut.data_pre_buf_size;
+		pVideoDataNode = stQueueOut.pDataBuf;
+		iRtpDataBufPreSize = stQueueOut.iDataPreBufSize;
 		if (pVideoDataNode != NULL)
 		{
 			memcpy(&stCmdHead, pVideoDataNode + iRtpDataBufPreSize, 32);
@@ -536,12 +491,12 @@ ERR:
 		}
 	}
 	TRACE_ERR("111###################send rtp data thread exit [ret = %d]####################\n", iRet);
-	HB_U32 uHashValue = pStreamNode->iStreamNodeHashValue;
+	HB_U32 uHashValue = pStreamNode->uStreamNodeHashValue;
 	pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 	del_node_from_stream_hash_table(glStreamHashTable, pStreamNode);
-	delete_rtp_data_list(pStreamNode->queueStreamData);
+	clear_rtp_data_from_queue(pStreamNode->queueStreamData);
 	nolock_queue_destroy(&(pStreamNode->queueStreamData));
-	destroy_client_rtp_list(&(pStreamNode->listClientNodeHead)); //释放rtp客户队列
+	destory_client_list(&(pStreamNode->listClientNodeHead)); //释放rtp客户队列
 	if (NULL != pStreamNode->hGetStreamFromSource)
 	{
 		free(pStreamNode->hGetStreamFromSource);
