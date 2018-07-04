@@ -57,7 +57,7 @@ HB_U64 clock2ntp(HB_U64 clock)
 
 
 
-int rtcp_sr_pack(RTP_CLIENT_TRANSPORT_HANDLE pClientNode, HB_U8* ptr, int bytes, HB_U64 iCurTime)
+int rtcp_sr_pack(RTP_CLIENT_TRANSPORT_HANDLE pClientNode, HB_U8* ptr, int bytes)
 {
 	HB_U32 i, timestamp = 162007200;
 	HB_U64 ntp;

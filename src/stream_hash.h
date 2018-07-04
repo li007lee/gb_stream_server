@@ -65,6 +65,7 @@ typedef struct _udp_info
 	struct sockaddr_in rtcp_peer; //RTCP客户端的网络地址
 	port_pair cli_ports;      //客户端的端口对
 	port_pair ser_ports;      //服务器端的端口对
+	struct event *evUdpSendRtcpEvent;
 	struct event *evUdpRtcpListenEvent;
 	HB_S32 iUdpRtcpSockFd;//rtcp通信端口(接收和发送)
 	HB_S32 iUdpVideoFd; //UDP的视频网络文件描述符

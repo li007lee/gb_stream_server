@@ -449,6 +449,11 @@ HB_U32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 						bufferevent_free(pClientNode->pSendStreamBev);
 						pClientNode->pSendStreamBev = NULL;
 					}
+					if (pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent != NULL)
+					{
+						event_del(pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent);
+						pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent = NULL;
+					}
 					if (pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent != NULL)
 					{
 						event_del(pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent);

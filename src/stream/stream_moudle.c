@@ -86,6 +86,33 @@ static HB_VOID udp_rtcp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDL
 }
 
 
+static HB_VOID udp_send_rtcp_timer(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hArg)
+{
+	RTP_CLIENT_TRANSPORT_HANDLE pClientNode = (RTP_CLIENT_TRANSPORT_HANDLE)hArg;
+
+	if (1 == pClientNode->iSendIframeFlag)
+	{
+		HB_S32 iSrLen = 0;
+		HB_S32 iSdesLen = 0;
+
+		HB_CHAR cRtcpBuf[512] = {0};
+//		iSrLen = rtcp_sr_pack(pClientNode, cRtcpBuf, 512, u64Time);
+		iSrLen = rtcp_sr_pack(pClientNode, cRtcpBuf, sizeof(cRtcpBuf));
+		iSdesLen = rtcp_sdes_pack(pClientNode, cRtcpBuf+iSrLen, 512-iSrLen);
+		sendto(pClientNode->stUdpVideoInfo.iUdpRtcpSockFd, cRtcpBuf, iSrLen+iSdesLen, 0, (struct sockaddr*)(&(pClientNode->stUdpVideoInfo.rtcp_peer)), (socklen_t)(sizeof(struct sockaddr_in)));
+		printf("send rtcp to peer  [%d]:[%d]\n", pClientNode->stUdpVideoInfo.cli_ports.RTCP, pClientNode->stUdpVideoInfo.ser_ports.RTCP);
+		struct timeval tv = {RTCP_RECV_TIMEOUT, 0};
+		if (NULL == pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent)
+		{
+			struct event_base *pWorkBase = event_get_base(pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent);
+			pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent = event_new(pWorkBase, pClientNode->stUdpVideoInfo.iUdpRtcpSockFd, EV_READ | EV_PERSIST, udp_rtcp_recv_cb, (HB_VOID *)pClientNode);
+			event_add(pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent, &tv);
+		}
+	}
+}
+
+
+
 HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 {
 //	struct bufferevent *pWriteToSipBev = sip_stream_msg_pair[1];
@@ -129,12 +156,12 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 				pClientNode->stUdpVideoInfo.iUdpRtcpSockFd = stSipNode.iUdpRtcpSockFd;
 				pClientNode->stUdpVideoInfo.ser_ports.RTCP = stSipNode.iUdpRtcpListenPort;
 
-				struct timeval tv = {RTCP_TIMEOUT, 0};
-				//设置rtcp接收事件及回调函数
-				pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent = event_new(pStreamNode->pWorkBase, pClientNode->stUdpVideoInfo.iUdpRtcpSockFd, EV_READ | EV_PERSIST, udp_rtcp_recv_cb, (HB_VOID *)pClientNode);
-//				event_assign(&(pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent), pStreamNode->pWorkBase, pClientNode->stUdpVideoInfo.iUdpRtcpSockFd, EV_READ | EV_PERSIST, udp_rtcp_recv_cb, (HB_VOID *)pClientNode);
-				event_add(pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent, &tv);
-//				event_add(&(pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent), 0);
+				struct timeval tv = {RTCP_SEND_TIMER, 0};
+				pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent = event_new(pStreamNode->pWorkBase, pClientNode->stUdpVideoInfo.iUdpRtcpSockFd, EV_PERSIST, udp_send_rtcp_timer, (HB_VOID *)pClientNode);
+				event_add(pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent, &tv);
+//				//设置rtcp接收事件及回调函数
+//				pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent = event_new(pStreamNode->pWorkBase, pClientNode->stUdpVideoInfo.iUdpRtcpSockFd, EV_READ | EV_PERSIST, udp_rtcp_recv_cb, (HB_VOID *)pClientNode);
+//				event_add(pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent, &tv);
 
 				TRACE_BLUE("#######################append client  cCallId:[%s]\n", stSipNode.cCallId);
 				list_append(&(pStreamNode->listClientNodeHead), pClientNode);

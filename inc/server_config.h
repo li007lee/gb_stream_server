@@ -33,7 +33,8 @@
 #define MAX_THREADS    (2500)   //线程数上限
 #define MIN_THREADS     (500)     //最小启动线程数
 
-#define RTCP_TIMEOUT	(20)
+#define RTCP_SEND_TIMER	(15)	//用于发送rtcp消息的定时器时间 单位秒
+#define RTCP_RECV_TIMEOUT	(20) //接收对端rtcp返回消息的超时时间 单位秒
 
 
 //以下是日志和调试的配置

@@ -110,6 +110,11 @@ static HB_S32 destroy_client_rtp_list(list_t *listClientNodeHead)
 			bufferevent_free(pClientNode->pSendStreamBev);
 			pClientNode->pSendStreamBev = NULL;
 		}
+		if (pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent != NULL)
+		{
+			event_del(pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent);
+			pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent = NULL;
+		}
 		if (pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent != NULL)
 		{
 			event_del(pClientNode->stUdpVideoInfo.evUdpRtcpListenEvent);
@@ -305,24 +310,24 @@ HB_VOID send_rtp_to_client_task(struct sttask *pStpoolTask)
 //    			write(ps_fd, p_ps_data+iRtpDataBufPreSize, ps_data_len);
 				uCurNodeDataSize = pack_ps_rtp_and_add_node(pStreamNode, pPsData, iPsDataLen, u64Time, iRtpDataBufPreSize, 1);
 
-				if (iSendRtcp > 10)
-				{
-					RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(pStreamNode->listClientNodeHead), 0);
-
-					iSendRtcp = 0;
-					HB_S32 iSrLen = 0;
-					HB_S32 iSdesLen = 0;
-
-					HB_CHAR cRtcpBuf[512] = {0};
-					iSrLen = rtcp_sr_pack(client_node, cRtcpBuf, 512, u64Time);
-					iSdesLen = rtcp_sdes_pack(client_node, cRtcpBuf+iSrLen, 512-iSrLen);
-					sendto(client_node->stUdpVideoInfo.iUdpRtcpSockFd, cRtcpBuf, iSrLen+iSdesLen, 0, (struct sockaddr*)(&(client_node->stUdpVideoInfo.rtcp_peer)), (socklen_t)(sizeof(struct sockaddr_in)));
-					printf("send rtcp to peer  [%d]:[%d]\n", client_node->stUdpVideoInfo.cli_ports.RTCP, client_node->stUdpVideoInfo.ser_ports.RTCP);
-				}
-				else
-				{
-					iSendRtcp++;
-				}
+//				if (iSendRtcp > 10)
+//				{
+//					RTP_CLIENT_TRANSPORT_HANDLE client_node = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(pStreamNode->listClientNodeHead), 0);
+//
+//					iSendRtcp = 0;
+//					HB_S32 iSrLen = 0;
+//					HB_S32 iSdesLen = 0;
+//
+//					HB_CHAR cRtcpBuf[512] = {0};
+//					iSrLen = rtcp_sr_pack(client_node, cRtcpBuf, 512, u64Time);
+//					iSdesLen = rtcp_sdes_pack(client_node, cRtcpBuf+iSrLen, 512-iSrLen);
+//					sendto(client_node->stUdpVideoInfo.iUdpRtcpSockFd, cRtcpBuf, iSrLen+iSdesLen, 0, (struct sockaddr*)(&(client_node->stUdpVideoInfo.rtcp_peer)), (socklen_t)(sizeof(struct sockaddr_in)));
+//					printf("send rtcp to peer  [%d]:[%d]\n", client_node->stUdpVideoInfo.cli_ports.RTCP, client_node->stUdpVideoInfo.ser_ports.RTCP);
+//				}
+//				else
+//				{
+//					iSendRtcp++;
+//				}
 			}
 			else if (BP_FRAME == stCmdHead.data_type) //P帧
 			{

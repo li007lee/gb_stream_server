@@ -40,7 +40,7 @@ typedef struct _rtcp_sdes_item_t // source description RTCP packet
 	uint8_t *data;
 } rtcp_sdes_item_t;
 
-int rtcp_sr_pack(RTP_CLIENT_TRANSPORT_HANDLE pClientNode, HB_U8* ptr, int bytes, HB_U64 iCurTime);
+int rtcp_sr_pack(RTP_CLIENT_TRANSPORT_HANDLE pClientNode, HB_U8* ptr, int bytes);
 int rtcp_sdes_pack(RTP_CLIENT_TRANSPORT_HANDLE pClientNode, HB_U8* ptr, int bytes);
 
 #endif /* SRC_STREAM_RTCP_PACK_H_ */
