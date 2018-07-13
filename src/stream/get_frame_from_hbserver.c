@@ -144,7 +144,6 @@ void recv_stream_cb(struct bufferevent *pConnectHbServerBev, HB_VOID *event_args
 
 			if ((0 == pStreamNode->uRtpClientNodeSendDataThreadFlag) && (1 == stPackage.byFrameType))
 			{
-#if USE_PTHREAD_POOL
 				pStpoolTask = stpool_task_new(glGbThreadPool, "send_rtp_to_client_task", send_rtp_to_client_task,
 								send_rtp_to_client_task_err_cb, pStreamNode);
 				HB_S32 iError = stpool_task_set_p(pStpoolTask, glGbThreadPool);
@@ -172,39 +171,6 @@ void recv_stream_cb(struct bufferevent *pConnectHbServerBev, HB_VOID *event_args
 					stpool_task_queue(pStpoolTask);
 					pStreamNode->uRtpClientNodeSendDataThreadFlag = 1; //发送rtp数据线程已经启动
 				}
-#else
-				pthread_t threadDataSendId;
-				if(pthread_create(&threadDataSendId, NULL, send_rtp_to_client_thread, (HB_VOID *)pth_args) != 0)
-				{
-					pthread_mutex_lock(&(sip_hash_table->hash_node[pStreamNode->iStreamNodeHashValue].dev_mutex));
-					destroy_client_rtp_list(&(pStreamNode->listClientNodeHead)); //释放rtp客户队列
-					list_remove(&(pStreamNode->streaming_node_head), (HB_VOID*)pStreamNode);
-					if(0 == list_size(&(pStreamNode->streaming_node_head)))
-					{
-						list_destroy(&(pStreamNode->streaming_node_head));
-						list_remove(&(sip_hash_table->hash_node[pStreamNode->iStreamNodeHashValue].listStreamNodeHead), pStreamNode);
-						free(pStreamNode);
-						pStreamNode = NULL;
-					}
-					delete_rtp_data_list(pStreamNode->queueStreamData); //释放视频队列
-					lf_queue_destroy(&(pStreamNode->queueStreamData));
-					if(pStreamNode->hGetStreamFromSource != NULL)
-					{
-						free(pStreamNode->hGetStreamFromSource);
-						pStreamNode->hGetStreamFromSource = NULL;
-					}
-					free(pStreamNode);
-					pStreamNode=NULL;
-					pthread_mutex_unlock(&(sip_hash_table->hash_node[pStreamNode->iStreamNodeHashValue].dev_mutex));
-					return;
-				}
-				else
-				{
-					pthread_mutex_lock(&(sip_hash_table->hash_node[pStreamNode->iStreamNodeHashValue].dev_mutex));
-					pStreamNode->uRtpClientNodeSendDataThreadFlag = 1; //发送rtp数据线程已经启动
-					pthread_mutex_unlock(&(sip_hash_table->hash_node[pStreamNode->iStreamNodeHashValue].dev_mutex));
-				}
-#endif
 			}
 
 			if (0 == pStreamNode->uRtpClientNodeSendDataThreadFlag || 13 != stPackage.byDataType) //如果第一个I帧还没有来或者非音视频帧，则直接丢弃
@@ -328,6 +294,7 @@ HB_VOID recv_stream_err_cb(struct bufferevent *pConnectHbserverBev, HB_S16 event
 	{
 		TRACE_ERR("recv_stream_err_cb()   uRtpClientNodeSendDataThreadFlag = 0");
 		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
+		list_delete(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), (HB_VOID*)pStreamNode);
 		destory_client_list(&(pStreamNode->listClientNodeHead)); //释放rtp客户队列
 		clear_rtp_data_from_queue(pStreamNode->queueStreamData); //释放视频队列
 		nolock_queue_destroy(&(pStreamNode->queueStreamData));

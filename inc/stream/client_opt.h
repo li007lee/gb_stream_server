@@ -90,7 +90,7 @@ typedef struct _tagRTP_CLIENT_TRANSPORT
 }RTP_CLIENT_TRANSPORT_OBJ, *RTP_CLIENT_TRANSPORT_HANDLE;
 
 HB_VOID disable_client_rtp_list_bev(list_t *listClientNodeHead);
-HB_VOID del_one_client_node(list_t *plistClientNodeHead, RTP_CLIENT_TRANSPORT_HANDLE pClientNode);
+HB_VOID del_one_client_node(list_t *plistClientNodeHead, RTP_CLIENT_TRANSPORT_HANDLE pClientNode, HB_U32 u32HashValue);
 HB_VOID destory_client_list(list_t *plistClientNodeHead);
 
 #endif /* SRC_STREAM_CLIENT_OPT_H_ */

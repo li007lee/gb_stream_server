@@ -129,14 +129,13 @@ static HB_VOID client_event_cb(struct bufferevent *pPushStreamBev, HB_S16 events
 	bufferevent_free(pPushStreamBev);
 	pPushStreamBev = NULL;
 	uHashValue = pStreamNode->uStreamNodeHashValue;
-	//printf("\n@@@@@@@@@@@@@@@@@@  recv_stream_cb() err  iRet=%d\n", iRet);
 	if(0 == pStreamNode->uRtpClientNodeSendDataThreadFlag)//rtp发送线程还未启动
 	{
 		TRACE_ERR("recv_stream_cb()   uRtpClientNodeSendDataThreadFlag = 0");
-		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
+//		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 		list_remove(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), (HB_VOID*)pStreamNode);
 		destory_client_list(&(pStreamNode->listClientNodeHead));//释放rtp客户队列
-		pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
+//		pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 		clear_rtp_data_from_queue(pStreamNode->queueStreamData);//释放视频队列
 		nolock_queue_destroy(&(pStreamNode->queueStreamData));
 		if(pStreamNode->hGetStreamFromSource != NULL)
@@ -144,30 +143,19 @@ static HB_VOID client_event_cb(struct bufferevent *pPushStreamBev, HB_S16 events
 			free(pStreamNode->hGetStreamFromSource);
 			pStreamNode->hGetStreamFromSource = NULL;
 		}
-		list_destroy(&(pStreamNode->listClientNodeHead));
 		free(pStreamNode);
 		pStreamNode=NULL;
-		return;
 	}
-	else if(1 == pStreamNode->uRtpClientNodeSendDataThreadFlag)//如果rtp节点发送线程已经启动,这里只是把节点摘除，并不释放，由rtp发送线程释放
+	else //if((1 == pStreamNode->uRtpClientNodeSendDataThreadFlag) || (2 == pStreamNode->uRtpClientNodeSendDataThreadFlag))//如果rtp节点发送线程已经启动,这里只是把节点摘除，并不释放，由rtp发送线程释放
 	{
-		TRACE_ERR("recv_stream_cb()   uRtpClientNodeSendDataThreadFlag = 1");
+		TRACE_ERR("recv_stream_cb()   uRtpClientNodeSendDataThreadFlag = %d\n", pStreamNode->uRtpClientNodeSendDataThreadFlag);
 		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 		disable_client_rtp_list_bev(&(pStreamNode->listClientNodeHead));
-		list_delete(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), (HB_VOID*)pStreamNode);
-		pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
-		pStreamNode->uGetStreamThreadStartFlag = 2;//接受数据流模块已退出
-		return;
-	}
-	else if(2 == pStreamNode->uRtpClientNodeSendDataThreadFlag) //rtp发送线程启动后，异常标志置位,这里只置位接收模块标志，摘除释放工作由rtp发送线程执行
-	{
-		TRACE_ERR("recv_stream_cb()   uRtpClientNodeSendDataThreadFlag = 2");
-		pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
-		disable_client_rtp_list_bev(&(pStreamNode->listClientNodeHead));
-		list_delete(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), (HB_VOID*)pStreamNode);
+//		list_delete(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), (HB_VOID*)pStreamNode);
 		pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 		pStreamNode->uGetStreamThreadStartFlag = 2;//接受数据流模块已退出
 	}
+
 	return;
 }
 
@@ -206,7 +194,6 @@ static HB_VOID client_read_cb(struct bufferevent *pPushStreamBev, HB_VOID *args)
 
 		if(0 == pStreamNode->uRtpClientNodeSendDataThreadFlag)//如果rtp发送线程没有启动，则启动rtp包发送线程
 		{
-#if USE_PTHREAD_POOL
 			pTask = stpool_task_new(glGbThreadPool, "send_rtp_to_client_task", send_rtp_to_client_task, NULL, pStreamNode);
 			HB_S32 error = stpool_task_set_p(pTask, glGbThreadPool);
 			if (error)
@@ -221,20 +208,6 @@ static HB_VOID client_read_cb(struct bufferevent *pPushStreamBev, HB_VOID *args)
 				stpool_task_queue(pTask);
 				pStreamNode->uRtpClientNodeSendDataThreadFlag = 1; //发送rtp数据线程已经启动
 			}
-#else
-			pthread_t data_send_pthread_id;
-			if(pthread_create(&data_send_pthread_id, NULL, send_rtp_to_client_thread, (HB_VOID *)pth_args) != 0)
-			{
-				pthread_rwlock_wrlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].dev_mutex));
-
-				pthread_rwlock_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].dev_mutex));
-				return;
-			}
-			else
-			{
-				pStreamNode->uRtpClientNodeSendDataThreadFlag = 1; //发送rtp数据线程已经启动
-			}
-#endif
 		}
 //		if(2 == pStreamNode->uRtpClientNodeSendDataThreadFlag || 2 == pStreamNode->rtsp_play_flag)
 		if((0 == list_size(&(pStreamNode->listClientNodeHead))) || (2 == pStreamNode->uRtpClientNodeSendDataThreadFlag))
@@ -373,7 +346,7 @@ RETRY:
     HB_S32 cmd_host_len = 0;
 	HB_CHAR cJsonCmd[512] = {0};
 	snprintf(cJsonCmd+sizeof(BOX_CTRL_CMD_OBJ), sizeof(cJsonCmd)-sizeof(BOX_CTRL_CMD_OBJ), \
-			"{\"cmdType\":\"server_info\",\"serverIp\":\"%s\",\"serverPort\":%d}", RTSP_SERVER_ADDR, tmp_server_port);
+			"{\"cmdType\":\"server_info\",\"serverIp\":\"%s\",\"serverPort\":%d}", glGlobleArgs.cLocalIp, tmp_server_port);
 	memset(&cmd_msg, 0, sizeof(BOX_CTRL_CMD_OBJ));
 	memcpy(cmd_msg.header, "hBzHbox@", 8);
 	cmd_msg.cmd_type = BOX_SERVER_INFO;
@@ -464,152 +437,6 @@ END:
 }
 
 
-
-static HB_VOID *get_box_stream_thread(HB_VOID *args)
-{
-	TRACE_DBG("#######  get_box_stream_thread  start!");
-	HB_S32 iRet = 0;
-	STREAM_NODE_HANDLE pStreamNode = (STREAM_NODE_HANDLE)args;
-	pStreamNode->uGetStreamThreadStartFlag = 1;
-	HB_S32 epfd = -1;
-	struct epoll_event ev;
-	struct epoll_event events[1];
-
-	BOX_CTRL_CMD_OBJ cmd_buf;
-	memset(&cmd_buf, 0, sizeof(BOX_CTRL_CMD_OBJ));
-	HB_CHAR cJsonCmd[512] = {0};
-	HB_CHAR *pRecvMsg = NULL;
-
-	do
-	{
-		if (create_socket_connect_ipaddr(&(pStreamNode->iConnectBoxSockFd),
-				pStreamNode->cDevIp, pStreamNode->iDevPort, 5) < 0)
-		{
-			TRACE_ERR("connect to media stream failed!\n");
-			break;
-		}
-		set_socket_non_blocking(pStreamNode->iConnectBoxSockFd);
-		epfd=epoll_create(1);
-		if(epfd <= 0)
-		{
-			break;
-		}
-	    //设置与要处理的事件相关的文件描述符
-	    ev.data.fd=pStreamNode->iConnectBoxSockFd;
-	    //设置要处理的事件类型
-	    ev.events=EPOLLOUT;
-	    //注册epoll事件
-	    if(epoll_ctl(epfd,EPOLL_CTL_ADD,pStreamNode->iConnectBoxSockFd,&ev) != 0)
-	    {
-	    	break;
-	    }
-		//连接前端盒子成功，发送要观看的设备信息json消息。
-		//snprintf(cJsonCmd, sizeof(cJsonCmd),
-		//		"{\"CmdType\":\"open_video\",\"DevId\":\"%s\",\"DevChnl\":%d,\"DevStreamType\":%d}",
-		//		pStreamNode->cDevId, pStreamNode->iDevChnl, pStreamNode->iStreamType);
-#if PRIVATE_SERVER_MODE
-		snprintf(cJsonCmd+sizeof(BOX_CTRL_CMD_OBJ), sizeof(cJsonCmd)-sizeof(BOX_CTRL_CMD_OBJ),
-				"{\"CmdType\":\"open_video\",\"DevId\":\"%s\",\"DevChnl\":%d,\"DevStreamType\":%d}",
-				pStreamNode->cDevId+8, pStreamNode->iDevChnl-1, pStreamNode->iStreamType);
-#endif
-#if YDT_SERVER_MODE
-		snprintf(cJsonCmd+sizeof(BOX_CTRL_CMD_OBJ), sizeof(cJsonCmd)-sizeof(BOX_CTRL_CMD_OBJ),
-				"{\"CmdType\":\"open_video\",\"DevId\":\"%s\",\"DevChnl\":%d,\"DevStreamType\":%d}",
-				pStreamNode->cDevId, pStreamNode->iDevChnl, pStreamNode->iStreamType);
-#endif
-
-		memcpy(cmd_buf.header, "hBzHbox@", 8);
-		cmd_buf.cmd_type = BOX_PLAY_VIDEO;
-		cmd_buf.cmd_length = strlen(cJsonCmd+sizeof(BOX_CTRL_CMD_OBJ));
-		memcpy(cJsonCmd, &cmd_buf, sizeof(BOX_CTRL_CMD_OBJ));
-		iRet = send_data_ep(epfd, events, 1, cJsonCmd, cmd_buf.cmd_length+sizeof(BOX_CTRL_CMD_OBJ), 5, 0);
-		if(iRet != 0)
-		{
-			TRACE_ERR("*************  02 send_data err!");
-			break;
-		}
-		printf("\n>>>>>>>>>>>>>>  send to box open_video msg :[%s]\n", cJsonCmd+sizeof(BOX_CTRL_CMD_OBJ));
-
-#if 0
-		recv_box_frame(epfd, events, 1, pth_args);
-		free(pth_args);
-		pth_args = NULL;
-		return NULL;
-#endif
-#if 1
-		memset(&cmd_buf, 0, sizeof(BOX_CTRL_CMD_OBJ));
-		ev.events=EPOLLIN;
-		epoll_ctl(epfd,EPOLL_CTL_MOD,pStreamNode->iConnectBoxSockFd,&ev);
-		if ((iRet = recv_data_ep(epfd, events, 1, &cmd_buf, sizeof(BOX_CTRL_CMD_OBJ), 10)) <= 0)
-		{
-			TRACE_ERR("******## 00 recv msg from box failed! iRet = %d\n", iRet);
-			break;
-		}
-		if(cmd_buf.cmd_length > 0)
-		{
-			pRecvMsg = (HB_CHAR*)malloc(cmd_buf.cmd_length+1);
-			if(NULL == pRecvMsg)
-			{
-				break;
-			}
-			memset(pRecvMsg, 0, cmd_buf.cmd_length+1);
-			if ((iRet = recv_data_ep(epfd, events, 1, pRecvMsg, cmd_buf.cmd_length, 10)) <= 0)
-			{
-				TRACE_ERR("******## 01 recv msg from box failed! iRet = %d\n", iRet);
-				free(pRecvMsg);
-				pRecvMsg = NULL;
-				break;
-			}
-			printf("\n<<<<<<<<<<<<<< 123   recv len = %d   recv sdp_info from box:[%s]\n", cmd_buf.cmd_length, pRecvMsg);
-		}
-
-		if (CMD_OK == cmd_buf.cmd_code)
-		{
-			if(pRecvMsg != NULL)
-			{
-				printf("\n<<<<<<<<<<<<<<    recv len = %d   recv sdp_info from box:[%s]\n", cmd_buf.cmd_length, pRecvMsg);
-				parse_sdp_info(pStreamNode, pRecvMsg);
-				free(pRecvMsg);
-				pRecvMsg = NULL;
-			}
-			//printf("\n\nKKKKKKKKKKKKKKKKKKKK\n\n");
-			recv_box_frame(epfd, events, 1, pStreamNode);
-			return NULL;
-		}
-		else
-		{
-			if(NULL == pRecvMsg)
-			{
-				free(pRecvMsg);
-				pRecvMsg = NULL;
-			}
-			TRACE_ERR("Recv wrong message from box! Exit!\n");
-		}
-#endif
-	}while(0);
-
-
-	TRACE_ERR("\n###### get_box_stream_thread()   Err!\n");
-	close_sockfd(&(pStreamNode->iConnectBoxSockFd));
-	if(epfd > 0)
-	{
-		close_sockfd(&epfd);
-	}
-
-	HB_U32 uHashValue = 0;
-	uHashValue = pStreamNode->uStreamNodeHashValue;
-	pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
-	list_remove(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), (HB_VOID*)pStreamNode);
-	destory_client_list(&(pStreamNode->listClientNodeHead));//释放rtp客户队列
-	pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
-	free(pStreamNode);
-	pStreamNode=NULL;
-
-	printf("\nAAAAAAAAAA    333\n");
-	return NULL;
-}
-
-
 static HB_VOID get_box_stream_task(struct sttask *ptsk)
 {
 	printf("\n@@@@@@@@@@@@  get_box_stream_task  start!\n");
@@ -625,6 +452,8 @@ static HB_VOID get_box_stream_task(struct sttask *ptsk)
 	memset(&cmd_buf, 0, sizeof(BOX_CTRL_CMD_OBJ));
 	HB_CHAR cJsonCmd[512] = {0};
 	HB_CHAR *pRecvMsg = NULL;
+
+
 
 	do
 	{
@@ -650,13 +479,14 @@ static HB_VOID get_box_stream_task(struct sttask *ptsk)
 	    	break;
 	    }
 		//连接前端盒子成功，发送要观看的设备信息json消息。
-		//snprintf(cJsonCmd, sizeof(cJsonCmd),
-		//		"{\"CmdType\":\"open_video\",\"DevId\":\"%s\",\"DevChnl\":%d,\"DevStreamType\":%d}",
-		//		pStreamNode->cDevId, pStreamNode->iDevChnl, pStreamNode->iStreamType);
-
 		snprintf(cJsonCmd+sizeof(BOX_CTRL_CMD_OBJ), sizeof(cJsonCmd)-sizeof(BOX_CTRL_CMD_OBJ),
-				"{\"cmdType\":\"open_video\",\"devId\":\"%s\",\"devChnl\":%d,\"devStreamType\":%d}",
-				pStreamNode->cDevId+8, pStreamNode->iDevChnl, pStreamNode->iStreamType);  //+8是跳过"YDT-BOX-"的长度
+				"{\"cmdType\":\"open_video\",\"devId\":\"%s\",\"devChnl\":0,\"devStreamType\":0}",
+				"251227033954859-DS-2DC2204IW-D3%2fW20170528CCCH769439538");  //+8是跳过"YDT-BOX-"的长度
+
+
+//		snprintf(cJsonCmd+sizeof(BOX_CTRL_CMD_OBJ), sizeof(cJsonCmd)-sizeof(BOX_CTRL_CMD_OBJ),
+//				"{\"cmdType\":\"open_video\",\"devId\":\"%s\",\"devChnl\":%d,\"devStreamType\":%d}",
+//				pStreamNode->cDevId+8, pStreamNode->iDevChnl, pStreamNode->iStreamType);  //+8是跳过"YDT-BOX-"的长度
 
 		HB_S32 cmd_host_len = 0;
 		memcpy(cmd_buf.header, "hBzHbox@", 8);
@@ -738,7 +568,7 @@ static HB_VOID get_box_stream_task(struct sttask *ptsk)
 	//从汉邦服务器或者盒子获取流的线程还没有启动,所有节点资源在这里直接释放
 	printf("\nbbb\n");
 	pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
-	list_remove(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), (HB_VOID*)pStreamNode);
+	list_delete(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), (HB_VOID*)pStreamNode);
 	destory_client_list(&(pStreamNode->listClientNodeHead));//释放rtp客户队列
 	free(pStreamNode);
 	pStreamNode=NULL;
@@ -755,7 +585,6 @@ HB_S32 play_rtsp_video_from_box(STREAM_NODE_HANDLE pStreamNode)
 		return HB_FAILURE;
 	}
 
-#if USE_PTHREAD_POOL
 	struct sttask *pTask;
 	pTask = stpool_task_new(glGbThreadPool, "get_box_stream_task", get_box_stream_task, NULL, pStreamNode);
 	HB_S32 iError = stpool_task_set_p(pTask, glGbThreadPool);
@@ -771,18 +600,5 @@ HB_S32 play_rtsp_video_from_box(STREAM_NODE_HANDLE pStreamNode)
 		pStreamNode->uRtspPlayFlag = 1; //rtsp播放功能已启动
 	}
 
-#else
-
-	pthread_attr_t attr;
-	pthread_t get_stream_pthread_id;
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	if(pthread_create(&get_stream_pthread_id, &attr, get_box_stream_thread, (HB_VOID *)event_args) != 0) //直接从盒子获取单帧数据
-	{
-		pthread_attr_destroy(&attr);
-		return HB_FAILURE;
-	}
-	pthread_attr_destroy(&attr);
-#endif
 	return HB_SUCCESS;
 }

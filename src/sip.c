@@ -373,7 +373,7 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 	if (recvfrom(iUdpSockFd, cRecvBuf, sizeof(cRecvBuf) - 1, 0, (struct sockaddr *) &stServerSinAddr, &iServerAddrSize) == -1)
 	{
 		perror("recvfrom()");
-		event_loopbreak();
+//		event_loopbreak();
 		return;
 	}
 
@@ -398,11 +398,10 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 			if (HB_SUCCESS == parase_invite(&pSipMsg, &stSipDevInfo))
 			{
 				SIP_NODE_HANDLE pSipNode = insert_node_to_sip_hash_table(glSipHashTable, &stSipDevInfo);
-
 				build_response_default(&pResponseMsg, NULL, 200, pSipMsg);
 				osip_message_set_content_type(pResponseMsg, "application/sdp");
 				osip_message_get_contact(pSipMsg, 0, &pContact);
-				snprintf(cTmpContact, sizeof(cTmpContact), "<sip:%s@%s:5060>", pContact->url->username, LOCAL_IP);
+				snprintf(cTmpContact, sizeof(cTmpContact), "<sip:%s@%s:5060>", pContact->url->username, glGlobleArgs.cLocalIp);
 				osip_message_set_contact(pResponseMsg, cTmpContact);
 				printf("contact : [%s]\n", cTmpContact);
 #if 0
@@ -415,7 +414,7 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 								"a=streamMode:%d\r\n"
 								"a=recvonly\r\n"
 								"a=rtpmap:96 PS/90000\r\n"
-								"y=%s\r\n\r\n", pSipNode->cSipDevSn, LOCAL_IP, LOCAL_IP, pSipNode->iStreamType, pSipNode->cSsrc);
+								"y=%s\r\n\r\n", pSipNode->cSipDevSn, glGlobleArgs.cLocalIp, glGlobleArgs.cLocalIp, pSipNode->iStreamType, pSipNode->cSsrc);
 #endif
 
 				snprintf(cResponseBody, sizeof(cResponseBody), "v=0\r\n"
@@ -427,7 +426,7 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 								"a=streamMode:%d\r\n"
 								"a=sendonly\r\n"
 								"a=rtpmap:96 PS/90000\r\n"
-								"y=%u\r\n\r\n", pSipNode->cSipDevSn, pSipNode->cPushIp, LOCAL_IP, pSipNode->iUdpSendStreamPort, pSipNode->iStreamType, pSipNode->u32Ssrc);
+								"y=%u\r\n\r\n", pSipNode->cSipDevSn, pSipNode->cPushIp, glGlobleArgs.cLocalIp, pSipNode->iUdpSendStreamPort, pSipNode->iStreamType, pSipNode->u32Ssrc);
 
 				osip_message_set_body(pResponseMsg, cResponseBody, strlen(cResponseBody));
 				osip_message_to_str(pResponseMsg, &pTmpBufDest, (size_t *) &iMessageLen);
@@ -435,7 +434,7 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 				if (-1 == sendto(iUdpSockFd, (HB_VOID *) pTmpBufDest, strlen(pTmpBufDest), 0, (struct sockaddr *) &stServerSinAddr, iServerAddrSize))
 				{
 					perror("sendto()");
-					event_loopbreak();
+//					event_loopbreak();
 				}
 				osip_message_free(pResponseMsg);
 				pResponseMsg = NULL;
@@ -471,7 +470,7 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 				if (-1 == sendto(iUdpSockFd, (HB_VOID *) pTmpBufDest, strlen(pTmpBufDest), 0, (struct sockaddr *) &stServerSinAddr, iServerAddrSize))
 				{
 					perror("sendto()");
-					event_loopbreak();
+//					event_loopbreak();
 				}
 				osip_message_free(pResponseMsg);
 				pResponseMsg = NULL;
@@ -555,21 +554,16 @@ static HB_VOID *scanning_task(HB_VOID *param)
 {
 	HB_S32 total_events_num = 0;
 	HB_S32 current_process_used_mem = 0;
-#if USE_PTHREAD_POOL
 	struct pool_stat rtsp_pool_stat;
-#endif
+
 	while (1)
 	{
 		sleep(5);
 		total_events_num = event_base_get_num_events(pEventBase, EVENT_BASE_COUNT_ADDED);//获取base中活跃event的数量
 		current_process_used_mem = get_current_process_mem(getpid());
-#if USE_PTHREAD_POOL
 	    stpool_stat(glGbThreadPool, &rtsp_pool_stat);
 		printf("\n############ UsedMem=%d  TotalEvents=%d  PoolTotalThread=%d  PoolActiveThread=%d\n", current_process_used_mem, total_events_num,
 				rtsp_pool_stat.curthreads, rtsp_pool_stat.curthreads_active);
-#else
-		printf("\n############ UsedMem=%d  TotalEvents=%d \n", current_process_used_mem, total_events_num);
-#endif
 	}
 	return NULL;
 }
@@ -609,7 +603,6 @@ HB_S32 start_sip_moudle()
 		return HB_FAILURE;
 	}
 
-#if USE_PTHREAD_POOL
 	HB_S64 eCAPs = eCAP_F_DYNAMIC | eCAP_F_SUSPEND | eCAP_F_THROTTLE | eCAP_F_ROUTINE | eCAP_F_CUSTOM_TASK | eCAP_F_DISABLEQ | eCAP_F_PRIORITY
 					| eCAP_F_WAIT_ALL;
 	//创建线程池
@@ -626,13 +619,12 @@ HB_S32 start_sip_moudle()
 		TRACE_ERR("###### create pthread pool  err!");
 		return HB_FAILURE;
 	}
-#endif
 
 	iUdpListenerSock = socket(AF_INET, SOCK_DGRAM, 0);
 	bzero(&stListenAddr, sizeof(stListenAddr));
 	stListenAddr.sin_family = AF_INET;
 	stListenAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	stListenAddr.sin_port = htons(5060);
+	stListenAddr.sin_port = htons(glGlobleArgs.iGbListenPort);
 	pEventBase = event_base_new();
 	if (!pEventBase)
 	{

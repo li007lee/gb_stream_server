@@ -29,12 +29,91 @@ static HB_S32 find_call_id(const HB_VOID *el, const HB_VOID *key)
 }
 
 
-
 static HB_S32 udp_bind_local_port(SIP_NODE_HANDLE pSipNode)
 {
 	HB_S32 iRet = 0;
 
-	pSipNode->iUdpSendStreamPort = 2 * random_number(5000, 10000);
+	//创建rtp包发送套接字并绑定本地发送端口
+	pSipNode->iUdpSendStreamSockFd = socket(AF_INET, SOCK_DGRAM, 0);
+	struct sockaddr_in stUdpSendStreamAddr;
+	bzero(&stUdpSendStreamAddr, sizeof(stUdpSendStreamAddr));
+	stUdpSendStreamAddr.sin_family = AF_INET;
+	stUdpSendStreamAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	//创建rtcp通信套接字并绑定本地rtcp监听端口
+	pSipNode->iUdpRtcpSockFd = socket(AF_INET, SOCK_DGRAM, 0);
+	struct sockaddr_in stUdpRtcpListenAddr;
+	bzero(&stUdpRtcpListenAddr, sizeof(stUdpRtcpListenAddr));
+	stUdpRtcpListenAddr.sin_family = AF_INET;
+	stUdpRtcpListenAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	pSipNode->iUdpSendStreamPort = 2 * random_number(10000, 20000);
+	while(1)
+	{
+		stUdpSendStreamAddr.sin_port = htons(pSipNode->iUdpSendStreamPort);
+		if(0 != bind(pSipNode->iUdpSendStreamSockFd, (struct sockaddr *) &stUdpSendStreamAddr, sizeof(struct sockaddr)))
+		{
+			pSipNode->iUdpSendStreamPort += 2; //发流端口必须为偶数
+			usleep(50000);
+			continue;
+		}
+		else
+		{
+			if (glGlobleArgs.iUseRtcpFlag)
+			{
+				pSipNode->iUdpRtcpListenPort = pSipNode->iUdpSendStreamPort + 1;
+				stUdpRtcpListenAddr.sin_port = htons(pSipNode->iUdpRtcpListenPort);
+				if(0 != bind(pSipNode->iUdpRtcpSockFd, (struct sockaddr *) &stUdpRtcpListenAddr, sizeof(struct sockaddr)))
+				{
+					//以下是rtcp端口绑定失败后，rtp端口需要重新绑定
+					close(pSipNode->iUdpSendStreamSockFd);
+					pSipNode->iUdpSendStreamPort += 2; //发流端口必须为偶数
+					pSipNode->iUdpSendStreamSockFd = socket(AF_INET, SOCK_DGRAM, 0);
+					usleep(50000);
+					continue;
+				}
+				else
+				{
+					break;
+				}
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+	HB_S32 nSendBufLen1 = 65536*10; //设置为64K
+	setsockopt(pSipNode->iUdpSendStreamSockFd, SOL_SOCKET, SO_SNDBUF, (const HB_CHAR*) &nSendBufLen1, sizeof(HB_S32));
+
+	struct ifreq ifr;
+	memset(&ifr, 0, sizeof(ifr));
+	strncpy(ifr.ifr_name, glGlobleArgs.cNetworkCardName, sizeof(ifr.ifr_name));
+	ifr.ifr_qlen = 10000;
+	if (-1 == ioctl(pSipNode->iUdpSendStreamSockFd, SIOCSIFTXQLEN, &ifr))
+	{
+		TRACE_ERR("failed to set dev eth0 queue length");
+	}
+	if (-1 == ioctl(pSipNode->iUdpSendStreamSockFd, SIOCGIFTXQLEN, &ifr))
+	{
+		TRACE_ERR("failed to get dev eth0 queue length");
+	}
+	else
+	{
+		TRACE_DBG("Dev eth0 queue length : [%d]", ifr.ifr_qlen);
+	}
+
+	return HB_SUCCESS;
+}
+
+#if 0
+static HB_S32 udp_bind_local_port(SIP_NODE_HANDLE pSipNode)
+{
+	HB_S32 iRet = 0;
+	printf("0#################################\n");
+//	pSipNode->iUdpSendStreamPort = 2 * random_number(5000, 10000);
+	pSipNode->iUdpSendStreamPort = 2 * random_number(10000, 20000);
+	printf("1#################################\n");
 	while(1)
 	{
 		iRet = check_port(pSipNode->iUdpSendStreamPort);
@@ -42,6 +121,7 @@ static HB_S32 udp_bind_local_port(SIP_NODE_HANDLE pSipNode)
 		{
 			pSipNode->iUdpSendStreamPort += 2; //发流端口必须为偶数
 			usleep(10000);
+			continue;
 		}
 
 		pSipNode->iUdpRtcpListenPort = pSipNode->iUdpSendStreamPort + 1;
@@ -55,7 +135,10 @@ static HB_S32 udp_bind_local_port(SIP_NODE_HANDLE pSipNode)
 			break;
 		}
 
+
 	}
+
+	printf("2#################################\n");
 
 	//创建rtp包发送套接字并绑定本地发送端口
 	pSipNode->iUdpSendStreamSockFd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -65,7 +148,8 @@ static HB_S32 udp_bind_local_port(SIP_NODE_HANDLE pSipNode)
 	stUdpSendStreamAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	stUdpSendStreamAddr.sin_port = htons(pSipNode->iUdpSendStreamPort);
 	bind(pSipNode->iUdpSendStreamSockFd, (struct sockaddr *) &stUdpSendStreamAddr, sizeof(struct sockaddr));
-
+	printf("3#################################\n");
+#ifndef USE_RTCP
 	//创建rtcp通信套接字并绑定本地rtcp监听端口
 	pSipNode->iUdpRtcpSockFd = socket(AF_INET, SOCK_DGRAM, 0);
 	struct sockaddr_in stUdpRtcpListenAddr;
@@ -74,10 +158,14 @@ static HB_S32 udp_bind_local_port(SIP_NODE_HANDLE pSipNode)
 	stUdpRtcpListenAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	stUdpRtcpListenAddr.sin_port = htons(pSipNode->iUdpRtcpListenPort);
 	bind(pSipNode->iUdpRtcpSockFd, (struct sockaddr *) &stUdpRtcpListenAddr, sizeof(struct sockaddr));
+	printf("4#################################\n");
+#endif
 
 	return HB_SUCCESS;
 
 }
+
+#endif
 
 SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pSipHashTable, SIP_DEV_ARGS_HANDLE pSipDevInfo)
 {
@@ -85,7 +173,7 @@ SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pSipHashTabl
 	HB_U32 uHashValue = pHashFunc(pSipDevInfo->cCallId) % pSipHashTable->uHashTableLen;
 	SIP_NODE_HANDLE pSipNode = NULL;
 
-	pthread_mutex_lock(&(pSipHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
+//	pthread_mutex_lock(&(pSipHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	list_attributes_seeker(&(pSipHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), find_call_id);
 	pSipNode = list_seek(&(pSipHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), pSipDevInfo->cCallId);
 	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
@@ -111,7 +199,7 @@ SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pSipHashTabl
 		list_append(&(pSipHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), (HB_VOID*)pSipNode);
 
 	}
-	pthread_mutex_unlock(&(pSipHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
+//	pthread_mutex_unlock(&(pSipHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	return pSipNode;
 }
 
@@ -124,10 +212,10 @@ SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, 
 
 	SIP_NODE_HANDLE pSipNode = NULL;
 
-	pthread_mutex_lock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
+//	pthread_mutex_lock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	list_attributes_seeker(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), find_call_id);
 	pSipNode = list_seek(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), pCallId);
-	pthread_mutex_unlock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
+//	pthread_mutex_unlock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
 	if(NULL != pSipNode)
 	{
@@ -150,9 +238,9 @@ HB_VOID del_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, SIP_NODE_
 	HB_U32 uHashValue = pSipNode->iSipNodeHashValue;
 	printf("uHashValue=%u\n", uHashValue);
 
-	pthread_mutex_lock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
+//	pthread_mutex_lock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	list_delete(&(pHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), pSipNode);
-	pthread_mutex_unlock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
+//	pthread_mutex_unlock(&(pHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	return;
 }
 

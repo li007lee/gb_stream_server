@@ -11,7 +11,7 @@
 #include "my_include.h"
 
 #define RTP_VERSION       2
-#define MAX_RTP_PACKET_SIZE (1448) //1500(max) - 20(IP header) - 20(TCP header) - 12or14(RTP header)
+#define MAX_RTP_PACKET_SIZE (1400) //1500(max) - 20(IP header) - 20(TCP header) - 12or14(RTP header)
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // NAL信息结构体

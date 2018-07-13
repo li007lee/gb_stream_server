@@ -7,6 +7,9 @@
 
 #include "stream/client_opt.h"
 #include "event2/event.h"
+#include "stream_hash.h"
+
+extern STREAM_HASH_TABLE_HANDLE glStreamHashTable;
 
 //禁用客户节点中的发送视频流事件
 HB_VOID disable_client_rtp_list_bev(list_t *listClientNodeHead)
@@ -39,7 +42,7 @@ HB_VOID destory_client_list(list_t *plistClientNodeHead)
 		list_delete(plistClientNodeHead, pClientNode);
 		if (pClientNode->pSendStreamBev != NULL)
 		{
-			bufferevent_disable(pClientNode->pSendStreamBev, EV_READ | EV_WRITE);
+//			bufferevent_disable(pClientNode->pSendStreamBev, EV_READ | EV_WRITE);
 			bufferevent_free(pClientNode->pSendStreamBev);
 			pClientNode->pSendStreamBev = NULL;
 		}
@@ -78,10 +81,12 @@ HB_VOID destory_client_list(list_t *plistClientNodeHead)
 
 
 //从客户链表中删除一个客户节点
-HB_VOID del_one_client_node(list_t *plistClientNodeHead, RTP_CLIENT_TRANSPORT_HANDLE pClientNode)
+HB_VOID del_one_client_node(list_t *plistClientNodeHead, RTP_CLIENT_TRANSPORT_HANDLE pClientNode, HB_U32 u32HashValue)
 {
 	printf("del_one_client_node() client from list\n");
+	pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[u32HashValue].lockStreamNodeMutex));
 	list_delete(plistClientNodeHead, pClientNode);
+	pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[u32HashValue].lockStreamNodeMutex));
 	if (pClientNode->pSendStreamBev != NULL)
 	{
 		bufferevent_free(pClientNode->pSendStreamBev);
