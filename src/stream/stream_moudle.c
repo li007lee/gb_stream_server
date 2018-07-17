@@ -169,8 +169,8 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 				list_append(&(pStreamNode->listClientNodeHead), pClientNode);
 			}
 
-//			play_rtsp_video_from_hbserver(pStreamNode);
-			play_rtsp_video_from_box(pStreamNode);
+			play_rtsp_video_from_hbserver(pStreamNode);
+//			play_rtsp_video_from_box(pStreamNode);
 
 			printf("succeed!\n");
 		}

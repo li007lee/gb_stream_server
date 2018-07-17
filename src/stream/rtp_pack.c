@@ -255,10 +255,10 @@ static HB_S32 set_rtp_pack1(rtp_info_t *rtp_info, HB_CHAR *ps_data_buf,
 }
 
 #if 0
-HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
+HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE pStreamNode, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
 {
 	HB_S32 addr_len = sizeof(struct sockaddr_in);
-	HB_S32 hash_value = p_stream_node->iStreamNodeHashValue;
+	HB_S32 hash_value = pStreamNode->iStreamNodeHashValue;
 	HB_U32 left_bytes = 0;
 	HB_U32 cur_data_size = 0;
 	HB_U32 end_of_frame = 0;
@@ -271,7 +271,7 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 	HB_CHAR tmp_sps_pps[128] = { 0 };
 	HB_CHAR sql[512] = { 0 };
 	rtp_info_t *rtp_info = NULL;
-	rtp_info = &(p_stream_node->stRtpSession.rtp_info_video);
+	rtp_info = &(pStreamNode->stRtpSession.rtp_info_video);
 	start_pos = data_ptr + rtp_data_buf_pre_size;
 	left_bytes = data_size;
 	RTP_CLIENT_TRANSPORT_HANDLE pClientNode = NULL;
@@ -374,38 +374,38 @@ HB_S32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 }
 #endif
 
-#if 1
+#if 0
 //返回当前节点中数据长度
-HB_U32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
+HB_U32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE pStreamNode, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
 {
 	HB_S32 addr_len = sizeof(struct sockaddr_in);
-	HB_S32 u32HashValue = p_stream_node->uStreamNodeHashValue;
-	HB_U32 left_bytes = 0;
+	HB_S32 u32HashValue = pStreamNode->uStreamNodeHashValue;
+	HB_U32 u32LeftBytes = 0; //剩余需要发送的字节数
 	HB_U32 cur_data_size = 0;
-	HB_U32 end_of_frame = 0;
+//	HB_U32 end_of_frame = 0;
 	HB_U32 rtp_size = 0;
-	HB_U32 nal_size = 0;
-	HB_S32 nalu_type = 0;
+//	HB_U32 nal_size = 0;
+//	HB_S32 nalu_type = 0;
 	HB_CHAR *start_pos = NULL;
 	HB_CHAR *end_pos = NULL;
 	HB_CHAR *rtp_buf = NULL;
-	HB_CHAR tmp_sps_pps[128] = { 0 };
-	HB_CHAR sql[512] = { 0 };
+//	HB_CHAR tmp_sps_pps[128] = { 0 };
+//	HB_CHAR sql[512] = { 0 };
 	rtp_info_t *rtp_info = NULL;
-	rtp_info = &(p_stream_node->stRtpSession.rtp_info_video);
+	rtp_info = &(pStreamNode->stRtpSession.rtp_info_video);
 	start_pos = data_ptr + rtp_data_buf_pre_size;
-	left_bytes = data_size;
+	u32LeftBytes = data_size;
 	RTP_CLIENT_TRANSPORT_HANDLE pClientNode = NULL;
 	HB_S32 i = 0;
 	HB_S32 client_list_size = 0;
 	HB_S32 tmp_list_size = 0;
 
-	while (left_bytes > 3)
+	while (u32LeftBytes > 3)
 	{
 		//将NAL的信息填充进rtp信息的结构体中
-		set_rtp_pack1(rtp_info, start_pos, left_bytes, time_stamp, 1);
+		set_rtp_pack1(rtp_info, start_pos, u32LeftBytes, time_stamp, 1);
 
-		client_list_size = list_size(&(p_stream_node->listClientNodeHead));
+		client_list_size = list_size(&(pStreamNode->listClientNodeHead));
 		//RTP分包，从一个NALU数据中获取一包RTP数据
 		while ((rtp_buf = get_rtp_ps_pack(rtp_info, &rtp_size)) != NULL)
 		{
@@ -420,12 +420,10 @@ HB_U32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 			tmp_list_size = client_list_size;
 			while (tmp_list_size)
 			{
-				pClientNode = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(p_stream_node->listClientNodeHead), i);
-//				sendto(pClientNode->stUdpVideoInfo.iUdpVideoFd, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(pClientNode->stUdpVideoInfo.rtp_peer)), (socklen_t)(sizeof(struct sockaddr_in)));
-#if 1
+				pClientNode = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(pStreamNode->listClientNodeHead), i);
 				if (pClientNode->iDeleteFlag == 1)
 				{
-					del_one_client_node(&(p_stream_node->listClientNodeHead), pClientNode, u32HashValue);
+					del_one_client_node(&(pStreamNode->listClientNodeHead), pClientNode, u32HashValue);
 					free(pClientNode);
 					pClientNode = NULL;
 					client_list_size--;
@@ -442,26 +440,6 @@ HB_U32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 						pClientNode->iSendIframeFlag = 1;
 					}
 				}
-#endif
-//				printf("111111111111client call_id[%s]iSendIframeFlag=%d,pClientNode->iDeleteFlag=%d\n", pClientNode->cCallId, pClientNode->iSendIframeFlag, pClientNode->iDeleteFlag);
-//				if ((pClientNode->iSendIframeFlag == 0) && (frame_type == 1))
-//				{
-//					pClientNode->iSendIframeFlag = 1;
-//				}
-//
-//				if ((pClientNode->iDeleteFlag == 0) && (pClientNode->iSendIframeFlag == 1))
-//				{
-//					sendto(pClientNode->stUdpVideoInfo.iUdpVideoFd, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(pClientNode->stUdpVideoInfo.rtp_peer)), (socklen_t)(sizeof(struct sockaddr_in)));
-//				}
-//				else if (pClientNode->iDeleteFlag == 1)
-//				{
-//					del_one_client_node(&(p_stream_node->listClientNodeHead), pClientNode, u32HashValue);
-//					free(pClientNode);
-//					pClientNode = NULL;
-//					client_list_size--;
-//					--i;
-//				}
-
 				++i;
 				tmp_list_size--;
 			}
@@ -481,6 +459,70 @@ HB_U32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE p_stream_node, HB_CHAR *data_
 //			//更换起始地址，为下一次循环做准备
 //			start_pos = end_pos;
 //		}
+	}
+
+	return cur_data_size;
+}
+#endif
+
+#if 1
+//返回当前节点中数据长度
+HB_U32 pack_ps_rtp_and_add_node(STREAM_NODE_HANDLE pStreamNode, HB_CHAR *data_ptr, HB_U32 data_size, HB_U64 time_stamp, HB_U32 rtp_data_buf_pre_size, HB_S32 frame_type)
+{
+	HB_S32 addr_len = sizeof(struct sockaddr_in);
+	HB_S32 u32HashValue = pStreamNode->uStreamNodeHashValue;
+	HB_U32 u32LeftBytes = 0; //剩余需要发送的字节数
+	HB_U32 cur_data_size = 0;
+	HB_U32 rtp_size = 0;
+	HB_CHAR *start_pos = NULL;
+	HB_CHAR *end_pos = NULL;
+	HB_CHAR *rtp_buf = NULL;
+	rtp_info_t *rtp_info = NULL;
+	rtp_info = &(pStreamNode->stRtpSession.rtp_info_video);
+	start_pos = data_ptr + rtp_data_buf_pre_size;
+	u32LeftBytes = data_size;
+	RTP_CLIENT_TRANSPORT_HANDLE pClientNode = NULL;
+	HB_S32 i = 0;
+	HB_S32 client_list_size = 0;
+	HB_S32 tmp_list_size = 0;
+
+	while (u32LeftBytes > 3)
+	{
+		//将NAL的信息填充进rtp信息的结构体中
+		set_rtp_pack1(rtp_info, start_pos, u32LeftBytes, time_stamp, 1);
+		client_list_size = list_size(&(pStreamNode->listClientNodeHead));
+		//RTP分包，从一个NALU数据中获取一包RTP数据
+		while ((rtp_buf = get_rtp_ps_pack(rtp_info, &rtp_size)) != NULL)
+		{
+			i = 0;
+			tmp_list_size = client_list_size;
+			while (tmp_list_size)
+			{
+				pClientNode = (RTP_CLIENT_TRANSPORT_HANDLE)list_get_at(&(pStreamNode->listClientNodeHead), i);
+				if (pClientNode->iDeleteFlag == 1)
+				{
+					del_one_client_node(&(pStreamNode->listClientNodeHead), pClientNode, u32HashValue);
+					free(pClientNode);
+					pClientNode = NULL;
+					client_list_size--;
+					--i;
+				}
+				else
+				{
+					if (pClientNode->iSendIframeFlag == 1)
+					{
+						sendto(pClientNode->stUdpVideoInfo.iUdpVideoFd, rtp_buf, rtp_size, 0, (struct sockaddr*)(&(pClientNode->stUdpVideoInfo.rtp_peer)), (socklen_t)(sizeof(struct sockaddr_in)));
+					}
+					else if (frame_type == 1)
+					{
+						pClientNode->iSendIframeFlag = 1;
+					}
+				}
+				++i;
+				tmp_list_size--;
+			}
+		}
+		return cur_data_size;
 	}
 
 	return cur_data_size;

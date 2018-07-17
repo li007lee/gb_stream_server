@@ -38,14 +38,11 @@ static STREAM_NODE_HANDLE create_stream_node(STREAM_HASH_TABLE_HANDLE pHashTable
 	strncpy(pStreamNode->cDevId, pSipNode->cDevId, sizeof(pStreamNode->cDevId));
 	pStreamNode->iDevChnl = pSipNode->iDevChnl;
 	pStreamNode->iStreamType = pSipNode->iStreamType;
-//	strncpy(pStreamNode->cDevIp, pSipNode->cStreamSourceIp, sizeof(pStreamNode->cDevIp));
-//	pStreamNode->iDevPort = pSipNode->iStreamSourcePort;
+	strncpy(pStreamNode->cDevIp, pSipNode->cStreamSourceIp, sizeof(pStreamNode->cDevIp));
+	pStreamNode->iDevPort = pSipNode->iStreamSourcePort;
 
-//	strncpy(pStreamNode->cDevId, "YDT-BOX-251227033954859-DS-2DC2204IW-D3%2fW20170528CCCH769439538", sizeof(pStreamNode->cDevId));
-//	pStreamNode->iDevChnl = 0;
-//	pStreamNode->iStreamType = 0;
-	strncpy(pStreamNode->cDevIp, "172.16.1.250", sizeof(pStreamNode->cDevIp));
-	pStreamNode->iDevPort = 8109;
+//	strncpy(pStreamNode->cDevIp, "172.16.1.250", sizeof(pStreamNode->cDevIp));
+//	pStreamNode->iDevPort = 8109;
 
 	rtp_info_init(&(pStreamNode->stRtpSession.rtp_info_video), 96, pSipNode->u32Ssrc);
 	pStreamNode->pWorkBase = pEventBase;
