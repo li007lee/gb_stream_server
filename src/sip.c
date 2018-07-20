@@ -389,6 +389,13 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 //		case REGISTER:
 		case INVITE:
 		{
+			if (glGlobleArgs.iClientNum >= 300)
+			{
+				struct event *evUdpEvent = (struct event *)hArg;
+				event_del(evUdpEvent);
+				return ;
+			}
+			static int lalala = 0;
 			HB_S32 iMessageLen = 0;
 			HB_CHAR *pTmpBufDest = NULL;
 			HB_CHAR cResponseBody[4096] = { 0 }; //回应消息体
@@ -397,6 +404,12 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 			HB_CHAR cTmpContact[128] = { 0 };
 			if (HB_SUCCESS == parase_invite(&pSipMsg, &stSipDevInfo))
 			{
+				memset(stSipDevInfo.cDevId, 0, sizeof(stSipDevInfo.cDevId));
+				snprintf(stSipDevInfo.cDevId, sizeof(stSipDevInfo.cDevId), "%d", lalala);
+				memset(stSipDevInfo.cDevSn, 0, sizeof(stSipDevInfo.cDevSn));
+				snprintf(stSipDevInfo.cDevSn, sizeof(stSipDevInfo.cDevSn), "%d", lalala);
+				lalala++;
+
 				SIP_NODE_HANDLE pSipNode = insert_node_to_sip_hash_table(glSipHashTable, &stSipDevInfo);
 				build_response_default(&pResponseMsg, NULL, 200, pSipMsg);
 				osip_message_set_content_type(pResponseMsg, "application/sdp");
@@ -440,6 +453,7 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 				pResponseMsg = NULL;
 				TRACE_GREEN("response INVITE MessageLen=%d, buf=[%s]\n", iMessageLen, pTmpBufDest);
 			}
+
 			break;
 		}
 		case ACK:
@@ -480,13 +494,14 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 				if (NULL != pSipNode)
 				{
 					pSipNode->enumCmdType = STOP;
-					bufferevent_write(pWriteToStreamBev, pSipNode, sizeof(SIP_NODE_OBJ));
-					bufferevent_setcb(sip_stream_msg_pair[1], stream_read_cb, NULL, NULL, NULL);
-					bufferevent_enable(sip_stream_msg_pair[1], EV_READ);
+//					bufferevent_write(pWriteToStreamBev, pSipNode, sizeof(SIP_NODE_OBJ));
+//					bufferevent_setcb(sip_stream_msg_pair[1], stream_read_cb, NULL, NULL, NULL);
+//					bufferevent_enable(sip_stream_msg_pair[1], EV_READ);
 					del_node_from_sip_hash_table(glSipHashTable, pSipNode);
 					free(pSipNode);
 					pSipNode = NULL;
 				}
+				return;
 			}
 		}
 			break;
