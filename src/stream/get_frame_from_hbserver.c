@@ -465,12 +465,11 @@ HB_VOID connect_event_cb(struct bufferevent *connect_hbserver_bev, HB_S16 iEvent
 
 HB_S32 play_rtsp_video_from_hbserver(STREAM_NODE_HANDLE pStreamNode)
 {
-//	printf("11********************************\n");
 	if (1 == pStreamNode->uRtspPlayFlag)
 	{
 		return HB_FAILURE;
 	}
-//	printf("2********************************\n");
+
 	HB_S32 iConnectSockFd = -1;
 	struct bufferevent *pConnectHbserverBev = NULL;
 	struct sockaddr_in stServerAddr;
@@ -480,7 +479,7 @@ HB_S32 play_rtsp_video_from_hbserver(STREAM_NODE_HANDLE pStreamNode)
 	stServerAddr.sin_family = AF_INET;
 	stServerAddr.sin_port = htons(pStreamNode->iDevPort);
 	inet_aton(pStreamNode->cDevIp, &stServerAddr.sin_addr);
-//	printf("3********************************\n");
+
 	//创建接收视频流数据的bev，并且与rtsp客户端请求视频创建的bev放在同一个base里面，可以减少锁的数量，因为同一个base里，bev都是串行的
 	pConnectHbserverBev = bufferevent_socket_new(pStreamNode->pWorkBase, -1,
 					BEV_OPT_CLOSE_ON_FREE | BEV_OPT_THREADSAFE | BEV_OPT_DEFER_CALLBACKS); //第二个参数传-1,表示以后设置文件描述符
@@ -488,7 +487,7 @@ HB_S32 play_rtsp_video_from_hbserver(STREAM_NODE_HANDLE pStreamNode)
 	{
 		return HB_FAILURE;
 	}
-//	printf("4********************************\n");
+
 	pStreamNode->pConnectHbServerBev = pConnectHbserverBev;
 	struct timeval tv_read;
 	tv_read.tv_sec = 15;
@@ -498,7 +497,7 @@ HB_S32 play_rtsp_video_from_hbserver(STREAM_NODE_HANDLE pStreamNode)
 	HB_S32 iRecvBufLen = 65536; //设置为64K
 	setsockopt(iConnectSockFd, SOL_SOCKET, SO_RCVBUF, (const HB_CHAR*) &iRecvBufLen, sizeof(HB_S32));
 	bufferevent_setwatermark(pConnectHbserverBev, EV_READ, 29, 0);
-//	printf("5********************************\n");
+
 	//设置bufferevent各回调函数
 	bufferevent_setcb(pConnectHbserverBev, NULL, NULL, connect_event_cb, (HB_VOID*) (pStreamNode));
 	//启用读取或者写入事件

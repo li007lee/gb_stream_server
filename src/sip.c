@@ -28,8 +28,6 @@ HB_VOID sip_pair_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 {
 	SIP_STREAM_MSG_ARGS_HANDLE pRecvFromStreamBevArg = (SIP_STREAM_MSG_ARGS_HANDLE)arg;
 
-//	bufferevent_read(buf_bev, &stSipNode, sizeof(SIP_NODE_OBJ));
-
 	printf("#####sip_pair_read_cb() recv recv from stream moudle!\n");
 	switch (pRecvFromStreamBevArg->enumCmdType)
 	{
@@ -246,11 +244,16 @@ static HB_S32 parase_invite(osip_message_t ** pSipMsg, SIP_DEV_ARGS_HANDLE pSipD
 		return -1;
 	}
 	sdp_origin_get(pSdp, (const HB_CHAR **)&pUserName, (const HB_CHAR **)&pSession, (const HB_CHAR **)&pVersion, (const HB_CHAR **)&pNetwork, (const HB_CHAR **)&pAddrType, (const HB_CHAR **)&pAddress);
-
 	strncpy(pSipDevInfo->cDevSn, pUserName, sizeof(pSipDevInfo->cDevSn));
-	strncpy(pSipDevInfo->cPushIp, pAddress, sizeof(pSipDevInfo->cPushIp));
+//	strncpy(pSipDevInfo->cPushIp, pAddress, sizeof(pSipDevInfo->cPushIp));
 
-//	printf("pSipDevInfo->cPushIp=%s\n", pSipDevInfo->cPushIp);
+//	sdp_connection_get_address(pSdp, pAddress, sizeof(pSipDevInfo->cPushIp));
+	HB_CHAR *pClientNetwork = NULL;
+	HB_CHAR *pClientAddrType = NULL;
+	HB_CHAR *pClientAddress = NULL;
+	sdp_connection_get(pSdp, (const HB_CHAR **)&pClientNetwork, (const HB_CHAR **)&pClientAddrType, (const HB_CHAR **)&pClientAddress);
+	strncpy(pSipDevInfo->cPushIp, pClientAddress, sizeof(pSipDevInfo->cPushIp));
+	printf("pSipDevInfo->cPushIp=%s\n", pSipDevInfo->cPushIp);
 
 	const HB_CHAR *ssrc = sdp_y_get(pSdp);
 	if (NULL != ssrc)
@@ -389,13 +392,6 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 //		case REGISTER:
 		case INVITE:
 		{
-			if (glGlobleArgs.iClientNum >= 300)
-			{
-				struct event *evUdpEvent = (struct event *)hArg;
-				event_del(evUdpEvent);
-				return ;
-			}
-			static int lalala = 0;
 			HB_S32 iMessageLen = 0;
 			HB_CHAR *pTmpBufDest = NULL;
 			HB_CHAR cResponseBody[4096] = { 0 }; //回应消息体
@@ -404,12 +400,6 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 			HB_CHAR cTmpContact[128] = { 0 };
 			if (HB_SUCCESS == parase_invite(&pSipMsg, &stSipDevInfo))
 			{
-				memset(stSipDevInfo.cDevId, 0, sizeof(stSipDevInfo.cDevId));
-				snprintf(stSipDevInfo.cDevId, sizeof(stSipDevInfo.cDevId), "%d", lalala);
-				memset(stSipDevInfo.cDevSn, 0, sizeof(stSipDevInfo.cDevSn));
-				snprintf(stSipDevInfo.cDevSn, sizeof(stSipDevInfo.cDevSn), "%d", lalala);
-				lalala++;
-
 				SIP_NODE_HANDLE pSipNode = insert_node_to_sip_hash_table(glSipHashTable, &stSipDevInfo);
 				build_response_default(&pResponseMsg, NULL, 200, pSipMsg);
 				osip_message_set_content_type(pResponseMsg, "application/sdp");
@@ -494,9 +484,9 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 				if (NULL != pSipNode)
 				{
 					pSipNode->enumCmdType = STOP;
-//					bufferevent_write(pWriteToStreamBev, pSipNode, sizeof(SIP_NODE_OBJ));
-//					bufferevent_setcb(sip_stream_msg_pair[1], stream_read_cb, NULL, NULL, NULL);
-//					bufferevent_enable(sip_stream_msg_pair[1], EV_READ);
+					bufferevent_write(pWriteToStreamBev, pSipNode, sizeof(SIP_NODE_OBJ));
+					bufferevent_setcb(sip_stream_msg_pair[1], stream_read_cb, NULL, NULL, NULL);
+					bufferevent_enable(sip_stream_msg_pair[1], EV_READ);
 					del_node_from_sip_hash_table(glSipHashTable, pSipNode);
 					free(pSipNode);
 					pSipNode = NULL;

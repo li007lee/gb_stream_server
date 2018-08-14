@@ -453,8 +453,6 @@ static HB_VOID get_box_stream_task(struct sttask *ptsk)
 	HB_CHAR cJsonCmd[512] = {0};
 	HB_CHAR *pRecvMsg = NULL;
 
-	glGlobleArgs.iClientNum++;
-
 	do
 	{
 		if (create_socket_connect_ipaddr(&(pStreamNode->iConnectBoxSockFd),\

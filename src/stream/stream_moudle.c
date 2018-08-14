@@ -123,61 +123,6 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 	{
 		case PLAY:
 		{
-#if 0
-			HB_S32 i;
-			for (i=0;i<300;i++)
-			{
-				STREAM_NODE_HANDLE pStreamNode = insert_node_to_stream_hash_table(glStreamHashTable, &stSipNode);
-				HB_S32 uHashValue = pStreamNode->uStreamNodeHashValue;
-				pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
-				//查找客户节点
-				RTP_CLIENT_TRANSPORT_HANDLE pClientNode = find_client_node(pStreamNode, stSipNode.cCallId);
-				pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
-				if (NULL == pClientNode)
-				{
-					pClientNode = (RTP_CLIENT_TRANSPORT_HANDLE) calloc(1, sizeof(RTP_CLIENT_TRANSPORT_OBJ));
-					strncpy(pClientNode->cCallId, stSipNode.cCallId, sizeof(pClientNode->cCallId));
-					pClientNode->u32Ssrc = stSipNode.u32Ssrc;
-					pClientNode->stUdpVideoInfo.cli_ports.RTP = stSipNode.iPushPort;
-					pClientNode->stUdpVideoInfo.cli_ports.RTCP = stSipNode.iPushPort + 1;
-					pClientNode->stUdpVideoInfo.iUdpVideoFd = stSipNode.iUdpSendStreamSockFd;
-
-					//设置对端rtp视频流接收端口
-					bzero(&(pClientNode->stUdpVideoInfo.rtp_peer), sizeof(struct sockaddr_in));
-					pClientNode->stUdpVideoInfo.rtp_peer.sin_family = AF_INET;
-					pClientNode->stUdpVideoInfo.rtp_peer.sin_port = htons(pClientNode->stUdpVideoInfo.cli_ports.RTP);
-					inet_aton(stSipNode.cPushIp, &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
-
-					/*******************************测试专用*******************************/
-	//				pClientNode->stUdpVideoInfo.rtp_peer.sin_port = htons(iSendToZhangPort++);
-	//				inet_aton("172.16.3.200", &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
-	//				inet_aton("127.0.0.1", &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
-					/*******************************测试专用*******************************/
-					if (glGlobleArgs.iUseRtcpFlag)
-					{
-						pClientNode->stUdpVideoInfo.iUdpRtcpSockFd = stSipNode.iUdpRtcpSockFd;
-						pClientNode->stUdpVideoInfo.ser_ports.RTCP = stSipNode.iUdpRtcpListenPort;
-
-						//设置对端rtcp的接收端口
-						bzero(&(pClientNode->stUdpVideoInfo.rtcp_peer), sizeof(struct sockaddr_in));
-						pClientNode->stUdpVideoInfo.rtcp_peer.sin_family = AF_INET;
-						pClientNode->stUdpVideoInfo.rtcp_peer.sin_port = htons(pClientNode->stUdpVideoInfo.cli_ports.RTCP);
-						inet_aton(stSipNode.cPushIp, &(pClientNode->stUdpVideoInfo.rtcp_peer.sin_addr));
-
-						struct timeval tv = {RTCP_SEND_TIMER, 0};
-						pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent = event_new(pStreamNode->pWorkBase, pClientNode->stUdpVideoInfo.iUdpRtcpSockFd, EV_PERSIST, udp_send_rtcp_timer, (HB_VOID *)pClientNode);
-						event_add(pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent, &tv);
-					}
-
-					TRACE_BLUE("#######################append client  cCallId:[%s]\n", stSipNode.cCallId);
-					list_append(&(pStreamNode->listClientNodeHead), pClientNode);
-				}
-
-				play_rtsp_video_from_hbserver(pStreamNode);
-	//			play_rtsp_video_from_box(pStreamNode);
-			}
-#endif
-
 #if 1
 			pStreamNode = insert_node_to_stream_hash_table(glStreamHashTable, &stSipNode);
 			HB_S32 uHashValue = pStreamNode->uStreamNodeHashValue;
@@ -197,12 +142,12 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 				//设置对端rtp视频流接收端口
 				bzero(&(pClientNode->stUdpVideoInfo.rtp_peer), sizeof(struct sockaddr_in));
 				pClientNode->stUdpVideoInfo.rtp_peer.sin_family = AF_INET;
-//				pClientNode->stUdpVideoInfo.rtp_peer.sin_port = htons(pClientNode->stUdpVideoInfo.cli_ports.RTP);
-//				inet_aton(stSipNode.cPushIp, &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
+				pClientNode->stUdpVideoInfo.rtp_peer.sin_port = htons(pClientNode->stUdpVideoInfo.cli_ports.RTP);
+				inet_aton(stSipNode.cPushIp, &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
 
 				/*******************************测试专用*******************************/
-				pClientNode->stUdpVideoInfo.rtp_peer.sin_port = htons(iSendToZhangPort++);
-				inet_aton("172.16.3.200", &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
+//				pClientNode->stUdpVideoInfo.rtp_peer.sin_port = htons(iSendToZhangPort++);
+//				inet_aton("172.16.3.200", &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
 //				inet_aton("127.0.0.1", &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
 				/*******************************测试专用*******************************/
 				if (glGlobleArgs.iUseRtcpFlag)
@@ -228,7 +173,6 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 //			play_rtsp_video_from_hbserver(pStreamNode);
 			play_rtsp_video_from_box(pStreamNode);
 #endif
-//			glGlobleArgs.iClientNum++;
 			printf("succeed!\n");
 		}
 			break;
