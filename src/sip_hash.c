@@ -197,7 +197,6 @@ SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pSipHashTabl
 
 		udp_bind_local_port(pSipNode);
 		list_append(&(pSipHashTable->pSipHashNodeHead[uHashValue].listSipNodeHead), (HB_VOID*)pSipNode);
-
 	}
 //	pthread_mutex_unlock(&(pSipHashTable->pSipHashNodeHead[uHashValue].lockSipNodeMutex));
 	return pSipNode;
@@ -208,7 +207,6 @@ SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, 
 {
 	printf("\nFFFFFFFFFF  find_node_from_sip_hash_table call_id=[%s], uHashTableLen=[%d]\n", pCallId, pHashTable->uHashTableLen);
 	HB_U32 uHashValue = pHashFunc(pCallId) % pHashTable->uHashTableLen;
-	printf("uHashValue=%u\n", uHashValue);
 
 	SIP_NODE_HANDLE pSipNode = NULL;
 
@@ -219,12 +217,12 @@ SIP_NODE_HANDLE find_node_from_sip_hash_table(SIP_HASH_TABLE_HANDLE pHashTable, 
 	//当前哈希节点已经存在设备，此处查询当前设备是不是已经存在
 	if(NULL != pSipNode)
 	{
-		printf("FOUND FOUND FOUND FOUND FOUND CALL ID : [%s]\n", pSipNode->cCallId);
+		printf("find_node_from_sip_hash_table() FOUND FOUND FOUND FOUND FOUND CALL ID : [%s]\n", pSipNode->cCallId);
 	}
 	else
 	{
 		//当前申请的设备不存在
-		printf("do not found call id:[%s]!\n", pCallId);
+		printf("find_node_from_sip_hash_table() do not found call id:[%s]!\n", pCallId);
 	}
 
 
@@ -318,6 +316,7 @@ static HB_VOID sip_hash_table_init(SIP_HASH_TABLE_HANDLE hHashTable)
 	{
 		pthread_mutex_init(&(hHashTable->pSipHashNodeHead[i].lockSipNodeMutex), NULL);
 		list_init(&(hHashTable->pSipHashNodeHead[i].listSipNodeHead));
+
 	}
 }
 

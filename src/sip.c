@@ -380,7 +380,7 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 		return;
 	}
 
-	TRACE_YELLOW("FROM TO PARSE: [%s]\n", cRecvBuf);
+	TRACE_YELLOW("RECV FROM SIP SERVER : [%s]\n", cRecvBuf);
 	osip_message_init(&pSipMsg);
 	osip_message_parse(pSipMsg, cRecvBuf, strlen(cRecvBuf));
 
@@ -407,19 +407,6 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 				snprintf(cTmpContact, sizeof(cTmpContact), "<sip:%s@%s:5060>", pContact->url->username, glGlobleArgs.cLocalIp);
 				osip_message_set_contact(pResponseMsg, cTmpContact);
 				printf("contact : [%s]\n", cTmpContact);
-#if 0
-				snprintf(cResponseBody, sizeof(cResponseBody), "v=0\r\n"
-								"o=%s 0 0 IN IP4 %s\r\n"
-								"s=Play\r\n"
-								"c=IN IP4 %s\r\n"
-								"t=0 0\r\n"
-								"m=video 0 RTP/AVP 96\r\n"
-								"a=streamMode:%d\r\n"
-								"a=recvonly\r\n"
-								"a=rtpmap:96 PS/90000\r\n"
-								"y=%s\r\n\r\n", pSipNode->cSipDevSn, glGlobleArgs.cLocalIp, glGlobleArgs.cLocalIp, pSipNode->iStreamType, pSipNode->cSsrc);
-#endif
-
 				snprintf(cResponseBody, sizeof(cResponseBody), "v=0\r\n"
 								"o=%s 0 0 IN IP4 %s\r\n"
 								"s=Play\r\n"
@@ -437,7 +424,6 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 				if (-1 == sendto(iUdpSockFd, (HB_VOID *) pTmpBufDest, strlen(pTmpBufDest), 0, (struct sockaddr *) &stServerSinAddr, iServerAddrSize))
 				{
 					perror("sendto()");
-//					event_loopbreak();
 				}
 				osip_message_free(pResponseMsg);
 				pResponseMsg = NULL;
@@ -474,7 +460,6 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 				if (-1 == sendto(iUdpSockFd, (HB_VOID *) pTmpBufDest, strlen(pTmpBufDest), 0, (struct sockaddr *) &stServerSinAddr, iServerAddrSize))
 				{
 					perror("sendto()");
-//					event_loopbreak();
 				}
 				osip_message_free(pResponseMsg);
 				pResponseMsg = NULL;

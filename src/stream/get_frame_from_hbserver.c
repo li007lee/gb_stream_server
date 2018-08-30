@@ -270,19 +270,19 @@ HB_VOID recv_stream_err_cb(struct bufferevent *pConnectHbserverBev, HB_S16 event
 	HB_S32 iErrCode = EVUTIL_SOCKET_ERROR();
 	if (event & BEV_EVENT_TIMEOUT) //超时
 	{
-		TRACE_ERR("\n###########  BEV_EVENT_TIMEOUT(%d) : %s !\n", iErrCode, evutil_socket_error_to_string(iErrCode));
+		TRACE_ERR("\n###########recv_stream_err_cb  BEV_EVENT_TIMEOUT(%d) : %s !\n", iErrCode, evutil_socket_error_to_string(iErrCode));
 	}
 	else if (event & BEV_EVENT_EOF)
 	{
-		TRACE_ERR("\n###########  connection normal closed(%d) : %s !\n", iErrCode, evutil_socket_error_to_string(iErrCode));
+		TRACE_ERR("\n###########recv_stream_err_cb  connection normal closed(%d) : %s !\n", iErrCode, evutil_socket_error_to_string(iErrCode));
 	}
 	else if (event & BEV_EVENT_ERROR)
 	{
-		TRACE_ERR("\n###########  BEV_EVENT_ERROR(%d) : %s !\n", iErrCode, evutil_socket_error_to_string(iErrCode));
+		TRACE_ERR("\n###########recv_stream_err_cb  BEV_EVENT_ERROR(%d) : %s !\n", iErrCode, evutil_socket_error_to_string(iErrCode));
 	}
 	else
 	{
-		TRACE_ERR("\n###########  BEV_EVENT_OTHER_ERROR(%d) : %s !\n", iErrCode, evutil_socket_error_to_string(iErrCode));
+		TRACE_ERR("\n###########recv_stream_err_cb  BEV_EVENT_OTHER_ERROR(%d) : %s !\n", iErrCode, evutil_socket_error_to_string(iErrCode));
 	}
 
 	//发生异常
@@ -401,7 +401,7 @@ HB_VOID recv_cmd_from_hbserver(struct bufferevent *pConnectHbserverBev, HB_VOID 
 	pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 }
 
-HB_VOID connect_event_cb(struct bufferevent *connect_hbserver_bev, HB_S16 iEvent, HB_VOID *arg)
+HB_VOID connect_event_cb(struct bufferevent *pConnectHbServerBev, HB_S16 iEvent, HB_VOID *arg)
 {
 	STREAM_NODE_HANDLE pStreamNode = (STREAM_NODE_HANDLE) (arg);
 
@@ -432,22 +432,24 @@ HB_VOID connect_event_cb(struct bufferevent *connect_hbserver_bev, HB_S16 iEvent
 						"<TYPE>StartStream</TYPE><DVRName>%s</DVRName><ChnNo>%d</ChnNo><StreamType>%d</StreamType><TType>0</TType>", "12345",
 						pStreamNode->iDevChnl, pStreamNode->iStreamType);
 #endif
-		SendDataToStream(connect_hbserver_bev, cmd_buf, strlen(cmd_buf), DATA_TYPE_SMS_CMD);
+		SendDataToStream(pConnectHbServerBev, cmd_buf, strlen(cmd_buf), DATA_TYPE_SMS_CMD);
 		pStreamNode->hGetStreamFromSource = (HB_CHAR *) calloc(1, 1024 * 1024); //预先申请1M空间
 		struct timeval stReadTimeout;
 		stReadTimeout.tv_sec = 15;
 		stReadTimeout.tv_usec = 0;
-		bufferevent_set_timeouts(connect_hbserver_bev, &stReadTimeout, NULL);
-		bufferevent_setcb(connect_hbserver_bev, recv_cmd_from_hbserver, NULL, recv_stream_err_cb, (HB_VOID*)(pStreamNode));
-		bufferevent_enable(connect_hbserver_bev, EV_READ | EV_PERSIST);
+		bufferevent_set_timeouts(pConnectHbServerBev, &stReadTimeout, NULL);
+		bufferevent_setcb(pConnectHbServerBev, recv_cmd_from_hbserver, NULL, recv_stream_err_cb, (HB_VOID*)(pStreamNode));
+		bufferevent_enable(pConnectHbServerBev, EV_READ | EV_PERSIST);
 
 		return;
 	}
 
 	//以下是处理异常情况
-	bufferevent_disable(connect_hbserver_bev, EV_READ | EV_WRITE);
-	bufferevent_free(connect_hbserver_bev);
-	connect_hbserver_bev = NULL;
+	bufferevent_disable(pConnectHbServerBev, EV_READ | EV_WRITE);
+	bufferevent_free(pConnectHbServerBev);
+	pConnectHbServerBev = NULL;
+	pStreamNode->pConnectHbServerBev = NULL;
+
 	do
 	{
 		//从汉邦服务器或者盒子获取流的线程还没有启动,所有节点资源在这里直接释放
@@ -489,10 +491,6 @@ HB_S32 play_rtsp_video_from_hbserver(STREAM_NODE_HANDLE pStreamNode)
 	}
 
 	pStreamNode->pConnectHbServerBev = pConnectHbserverBev;
-	struct timeval tv_read;
-	tv_read.tv_sec = 15;
-	tv_read.tv_usec = 0;
-	bufferevent_set_timeouts(pConnectHbserverBev, &tv_read, NULL);
 	iConnectSockFd = bufferevent_getfd(pConnectHbserverBev);
 	HB_S32 iRecvBufLen = 65536; //设置为64K
 	setsockopt(iConnectSockFd, SOL_SOCKET, SO_RCVBUF, (const HB_CHAR*) &iRecvBufLen, sizeof(HB_S32));
@@ -503,6 +501,8 @@ HB_S32 play_rtsp_video_from_hbserver(STREAM_NODE_HANDLE pStreamNode)
 	//启用读取或者写入事件
 	if (-1 == bufferevent_enable(pConnectHbserverBev, EV_READ))
 	{
+		bufferevent_free(pConnectHbserverBev);
+		pStreamNode->pConnectHbServerBev = NULL;
 		return HB_FAILURE;
 	}
 
@@ -510,8 +510,15 @@ HB_S32 play_rtsp_video_from_hbserver(STREAM_NODE_HANDLE pStreamNode)
 	//调用bufferevent_socket_connect函数
 	if (-1 == bufferevent_socket_connect(pConnectHbserverBev, (struct sockaddr*) &stServerAddr, sizeof(struct sockaddr_in)))
 	{
+		bufferevent_free(pConnectHbserverBev);
+		pStreamNode->pConnectHbServerBev = NULL;
 		return HB_FAILURE;
 	}
+
+	struct timeval tv_read;
+	tv_read.tv_sec = 15;
+	tv_read.tv_usec = 0;
+	bufferevent_set_timeouts(pConnectHbserverBev, &tv_read, NULL);
 
 	pStreamNode->uRtspPlayFlag = 1; //rtsp播放功能已启动
 

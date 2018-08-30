@@ -38,10 +38,10 @@ static STREAM_NODE_HANDLE create_stream_node(STREAM_HASH_TABLE_HANDLE pHashTable
 	strncpy(pStreamNode->cDevId, pSipNode->cDevId, sizeof(pStreamNode->cDevId));
 	pStreamNode->iDevChnl = pSipNode->iDevChnl;
 	pStreamNode->iStreamType = pSipNode->iStreamType;
-//	strncpy(pStreamNode->cDevIp, pSipNode->cStreamSourceIp, sizeof(pStreamNode->cDevIp));
-//	pStreamNode->iDevPort = pSipNode->iStreamSourcePort;
-	strncpy(pStreamNode->cDevIp, "172.16.1.250", sizeof(pStreamNode->cDevIp));
-	pStreamNode->iDevPort = 8109;
+	strncpy(pStreamNode->cDevIp, pSipNode->cStreamSourceIp, sizeof(pStreamNode->cDevIp));
+	pStreamNode->iDevPort = pSipNode->iStreamSourcePort;
+//	strncpy(pStreamNode->cDevIp, "172.16.6.11", sizeof(pStreamNode->cDevIp));
+//	pStreamNode->iDevPort = 8109;
 
 	rtp_info_init(&(pStreamNode->stRtpSession.rtp_info_video), 96, pSipNode->u32Ssrc);
 	pStreamNode->pWorkBase = pEventBase;
@@ -53,17 +53,15 @@ static STREAM_NODE_HANDLE create_stream_node(STREAM_HASH_TABLE_HANDLE pHashTable
 
 
 
-STREAM_NODE_HANDLE insert_node_to_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHashTable, SIP_NODE_HANDLE pSipNode)
+STREAM_NODE_HANDLE insert_node_to_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHashTable, HB_U32 uHashValue, SIP_NODE_HANDLE pSipNode)
 {
-	HB_CHAR cHashSource[128] = {0};
-	snprintf(cHashSource, sizeof(cHashSource), "%s_%d_%d", pSipNode->cSipDevSn, pSipNode->iDevChnl, pSipNode->iStreamType);
-	TRACE_YELLOW("\nIIIIIIIIIIII  insert_node_to_stream_hash_table cDevId=[%s], cCallId=[%s], uStreamHashTableLen=[%d]\n", pSipNode->cSipDevSn, pSipNode->cCallId, pHashTable->uStreamHashTableLen);
-//	HB_U32 uHashValue = pHashFunc(pSipNode->cSipDevSn) % pHashTable->uStreamHashTableLen;
-	HB_U32 uHashValue = pHashFunc(cHashSource) % pHashTable->uStreamHashTableLen;
-//	TRACE_YELLOW("uHashValue=%u\n", uHashValue);
+//	HB_CHAR cHashSource[128] = {0};
+//	snprintf(cHashSource, sizeof(cHashSource), "%s_%d_%d", pSipNode->cSipDevSn, pSipNode->iDevChnl, pSipNode->iStreamType);
+//	TRACE_YELLOW("\nIIIIIIIIIIII  insert_node_to_stream_hash_table cDevId=[%s], cCallId=[%s], uStreamHashTableLen=[%d]\n", pSipNode->cSipDevSn, pSipNode->cCallId, pHashTable->uStreamHashTableLen);
+//	HB_U32 uHashValue = pHashFunc(cHashSource) % pHashTable->uStreamHashTableLen;
 	STREAM_NODE_HANDLE pStreamNode = NULL;
 
-	pthread_mutex_lock(&(pHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
+//	pthread_mutex_lock(&(pHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 	list_attributes_seeker(&(pHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), find_dev_id_chnl_stream_key);
 	pStreamNode = list_seek(&(pHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), (HB_VOID *)pSipNode);
 	if(NULL == pStreamNode)
@@ -81,7 +79,7 @@ STREAM_NODE_HANDLE insert_node_to_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHa
 		TRACE_GREEN("$$$$$$$$$$$$$$$$$$$$$$$ Allready have Sn:[%s] Chnl:[%d] StreamType[%d]\n", pSipNode->cSipDevSn, pSipNode->iDevChnl, pSipNode->iStreamType);
 	}
 
-	pthread_mutex_unlock(&(pHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
+//	pthread_mutex_unlock(&(pHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 	return pStreamNode;
 }
 

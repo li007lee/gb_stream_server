@@ -458,7 +458,7 @@ static HB_VOID get_box_stream_task(struct sttask *ptsk)
 		if (create_socket_connect_ipaddr(&(pStreamNode->iConnectBoxSockFd),\
 				pStreamNode->cDevIp, pStreamNode->iDevPort, 5) < 0)
 		{
-			TRACE_ERR("connect to media stream failed!\n");
+			TRACE_ERR("connect to media stream failed! ip:[%s],port:[%d]\n", pStreamNode->cDevIp, pStreamNode->iDevPort);
 			break;
 		}
 

@@ -124,12 +124,15 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 		case PLAY:
 		{
 #if 1
-			pStreamNode = insert_node_to_stream_hash_table(glStreamHashTable, &stSipNode);
-			HB_S32 uHashValue = pStreamNode->uStreamNodeHashValue;
+			HB_CHAR cHashSource[128] = {0};
+			snprintf(cHashSource, sizeof(cHashSource), "%s_%d_%d", stSipNode.cSipDevSn, stSipNode.iDevChnl, stSipNode.iStreamType);
+			TRACE_YELLOW("\nIIIIIIIIIIII  insert_node_to_stream_hash_table cDevId=[%s], cCallId=[%s], uStreamHashTableLen=[%d]\n", \
+							stSipNode.cSipDevSn, stSipNode.cCallId, glStreamHashTable->uStreamHashTableLen);
+			HB_U32 uHashValue = get_stream_hash_value(glStreamHashTable, cHashSource);
 			pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
+			pStreamNode = insert_node_to_stream_hash_table(glStreamHashTable, uHashValue, &stSipNode);
 			//查找客户节点
 			RTP_CLIENT_TRANSPORT_HANDLE pClientNode = find_client_node(pStreamNode, stSipNode.cCallId);
-			pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 			if (NULL == pClientNode)
 			{
 				pClientNode = (RTP_CLIENT_TRANSPORT_HANDLE) calloc(1, sizeof(RTP_CLIENT_TRANSPORT_OBJ));
@@ -150,6 +153,7 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 //				inet_aton("172.16.3.200", &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
 //				inet_aton("127.0.0.1", &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
 				/*******************************测试专用*******************************/
+
 				if (glGlobleArgs.iUseRtcpFlag)
 				{
 					pClientNode->stUdpVideoInfo.iUdpRtcpSockFd = stSipNode.iUdpRtcpSockFd;
@@ -170,8 +174,9 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 				list_append(&(pStreamNode->listClientNodeHead), pClientNode);
 			}
 
-//			play_rtsp_video_from_hbserver(pStreamNode);
-			play_rtsp_video_from_box(pStreamNode);
+			play_rtsp_video_from_hbserver(pStreamNode);
+//			play_rtsp_video_from_box(pStreamNode);
+			pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 #endif
 			printf("succeed!\n");
 		}
@@ -181,7 +186,6 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 			printf("\n*************************** recv del client from sip\n");
 			HB_CHAR cHashSource[128] = {0};
 			snprintf(cHashSource, sizeof(cHashSource), "%s_%d_%d", stSipNode.cSipDevSn, stSipNode.iDevChnl, stSipNode.iStreamType);
-//			printf("cHashSource=[%s]\n", cHashSource);
 			HB_U32 uHashValue = get_stream_hash_value(glStreamHashTable, cHashSource);
 			pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 			pStreamNode = find_node_from_stream_hash_table(glStreamHashTable, uHashValue, &stSipNode);
@@ -195,12 +199,12 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 				}
 				else
 				{
-					TRACE_BLUE("#################Do not found client!\n");
+					TRACE_BLUE("000#################Do not found client!\n");
 				}
 			}
 			else
 			{
-				TRACE_BLUE("#################Do not found dev[%s]!\n", stSipNode.cSipDevSn);
+				TRACE_BLUE("111#################Do not found dev[%s]!\n", stSipNode.cSipDevSn);
 			}
 			pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 		}
