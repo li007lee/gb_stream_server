@@ -191,6 +191,7 @@ void recv_stream_cb(struct bufferevent *pConnectHbServerBev, HB_VOID *event_args
 			}
 			else if (1 == stPackage.byFrameType)
 			{
+//				printf("[%s]--------I_FRAME, nolock_queue_len(pStreamNode->queueStreamData)=[%d]\n", pStreamNode->cDevId, nolock_queue_len(pStreamNode->queueStreamData));
 				stCmdHead.data_type = I_FRAME;
 			}
 			else if (4 == stPackage.byFrameType)
@@ -203,7 +204,7 @@ void recv_stream_cb(struct bufferevent *pConnectHbServerBev, HB_VOID *event_args
 			//		{
 			//printf("stCmdHead.v_pts=%ld------->FrameType------>%d------>DataLen========%d\n", stCmdHead.v_pts, stPackage.byFrameType, pStreamNode->iRecvStreamDataLen);
 			//		}
-			if (nolock_queue_len(pStreamNode->queueStreamData) > 512)
+			if (nolock_queue_len(pStreamNode->queueStreamData) >= 512)
 			{
 				break;
 			}
@@ -360,6 +361,8 @@ HB_VOID recv_cmd_from_hbserver(struct bufferevent *pConnectHbserverBev, HB_VOID 
 				iRet = nolock_queue_init(&(pStreamNode->queueStreamData), 0, sizeof(QUEUE_ARGS_OBJ), 512);
 				if (0 == iRet)
 				{
+//					printf("asdfasdfdfdfdfffffffffffffffffffffffffffffffffffffffffffff \n");
+//					printf("addr = %p\n", pConnectHbserverBev);
 					struct timeval stReadTimeout;
 					stReadTimeout.tv_sec = 15;
 					stReadTimeout.tv_usec = 0;
@@ -368,6 +371,8 @@ HB_VOID recv_cmd_from_hbserver(struct bufferevent *pConnectHbserverBev, HB_VOID 
 					bufferevent_set_max_single_read(pConnectHbserverBev, 65536);
 					bufferevent_set_max_single_write(pConnectHbserverBev, 65536);
 					bufferevent_setcb(pConnectHbserverBev, recv_stream_cb, NULL, recv_stream_err_cb, pStreamNode);
+//					printf("enable [%d]\n", bufferevent_enable(pConnectHbserverBev, EV_READ|EV_WRITE));
+//					printf("1111asdfasdfdfdfdfffffffffffffffffffffffffffffffffffffffffffff\n");
 					return;
 				}
 				else
@@ -437,6 +442,7 @@ HB_VOID connect_event_cb(struct bufferevent *pConnectHbServerBev, HB_S16 iEvent,
 		struct timeval stReadTimeout;
 		stReadTimeout.tv_sec = 15;
 		stReadTimeout.tv_usec = 0;
+//		printf("addr = %p\n", pConnectHbServerBev);
 		bufferevent_set_timeouts(pConnectHbServerBev, &stReadTimeout, NULL);
 		bufferevent_setcb(pConnectHbServerBev, recv_cmd_from_hbserver, NULL, recv_stream_err_cb, (HB_VOID*)(pStreamNode));
 		bufferevent_enable(pConnectHbServerBev, EV_READ | EV_PERSIST);
@@ -495,6 +501,11 @@ HB_S32 play_rtsp_video_from_hbserver(STREAM_NODE_HANDLE pStreamNode)
 	HB_S32 iRecvBufLen = 65536; //设置为64K
 	setsockopt(iConnectSockFd, SOL_SOCKET, SO_RCVBUF, (const HB_CHAR*) &iRecvBufLen, sizeof(HB_S32));
 	bufferevent_setwatermark(pConnectHbserverBev, EV_READ, 29, 0);
+//
+//	struct timeval tv_read;
+//	tv_read.tv_sec = 5;
+//	tv_read.tv_usec = 0;
+//	bufferevent_set_timeouts(pConnectHbserverBev, &tv_read, NULL);
 
 	//设置bufferevent各回调函数
 	bufferevent_setcb(pConnectHbserverBev, NULL, NULL, connect_event_cb, (HB_VOID*) (pStreamNode));

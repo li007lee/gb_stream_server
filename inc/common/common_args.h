@@ -23,10 +23,11 @@ typedef struct _SIP_STREAM_MSG_ARGS
 
 typedef struct _GLOBLE_ARGS
 {
-	HB_S32	iGbListenPort;	//當前服務器監聽端口
+	HB_S32	iGbListenPort;	//当前服务器监听端口
 	HB_S32	iUseRtcpFlag; //是否使用rtcp 1 使用, 0不使用
 	HB_CHAR cLocalIp[16];
 	HB_CHAR	cNetworkCardName[32];
+	HB_S32	 iMaxConnections; //最大用户连接数，视频并发数
 }GLOBLE_ARGS_OBJ;
 
 extern GLOBLE_ARGS_OBJ glGlobleArgs;

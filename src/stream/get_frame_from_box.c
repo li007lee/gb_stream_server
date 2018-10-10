@@ -214,7 +214,7 @@ static HB_VOID client_read_cb(struct bufferevent *pPushStreamBev, HB_VOID *args)
 		{
 			break;
 		}
-		if(nolock_queue_len(pStreamNode->queueStreamData) > 512)
+		if(nolock_queue_len(pStreamNode->queueStreamData) > 500)
 		{
 			break;
 		}

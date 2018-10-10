@@ -31,7 +31,12 @@ HB_S32 get_server_config()
 	printf("glGlobleArgs.iGbListenPort:[%d]\n", glGlobleArgs.iGbListenPort);
 	glGlobleArgs.iUseRtcpFlag = get_int_value(fp, "SERVER_CONFIG", "UseRtcp", 0);
 	printf("glGlobleArgs.iUseRtcpFlag:[%d]\n", glGlobleArgs.iUseRtcpFlag);
-
+	glGlobleArgs.iMaxConnections = get_int_value(fp, "SERVER_CONFIG", "MaxConnections", 100);
+	printf("glGlobleArgs.iMaxConnections:[%d]\n", glGlobleArgs.iMaxConnections);
+	if (glGlobleArgs.iMaxConnections < 1)
+	{
+		glGlobleArgs.iMaxConnections = 1;
+	}
 	close_config_file(fp);
 
 	return HB_SUCCESS;

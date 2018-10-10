@@ -169,7 +169,7 @@ static HB_S32 udp_bind_local_port(SIP_NODE_HANDLE pSipNode)
 
 SIP_NODE_HANDLE insert_node_to_sip_hash_table(SIP_HASH_TABLE_HANDLE pSipHashTable, SIP_DEV_ARGS_HANDLE pSipDevInfo)
 {
-	printf("\nIIIIIIIIIIII  InsertNodeToSipHashTable dev_id=[%s], call_id=[%s], uHashTableLen=[%d]\n", pSipDevInfo->cDevSn, pSipDevInfo->cCallId, pSipHashTable->uHashTableLen);
+	printf("\nIIIIIIIIIIII  InsertNodeToSipHashTable dev_id=[%s], call_id=[%s], uHashTableLen=[%d]\n", pSipDevInfo->cDevId, pSipDevInfo->cCallId, pSipHashTable->uHashTableLen);
 	HB_U32 uHashValue = pHashFunc(pSipDevInfo->cCallId) % pSipHashTable->uHashTableLen;
 	SIP_NODE_HANDLE pSipNode = NULL;
 

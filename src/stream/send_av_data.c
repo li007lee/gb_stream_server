@@ -131,7 +131,7 @@ HB_VOID send_rtp_to_client_task(struct sttask *pStpoolTask)
 //	ps_init(25);
 //	struct evbuffer *pEvBuf = NULL;
 	STREAM_NODE_HANDLE pStreamNode = (STREAM_NODE_HANDLE) (pStpoolTask->task_arg);
-	printf("\n@@@@@@@@@@@  send_rtp_to_client_task TASK start!dev_addr=%p\n", pStreamNode);
+	TRACE_BLUE("\n@@@@@@@@@@@  send_rtp_to_client_task TASK start!dev_id=%p\n", pStreamNode->cDevId);
 	HB_S32 iRet = 0;
 	HB_S32 iRtpDataNums = 0;
 	HB_U32 uSendInterval = 0;
@@ -257,10 +257,11 @@ HB_VOID send_rtp_to_client_task(struct sttask *pStpoolTask)
 			}
 
 //			u64Time += 3600;
-//			printf("\n***************  v_pts=%lu rtsp_time_stamp =%lu, u64AddTime=%lu   \n", (HB_U64) (stCmdHead.v_pts), u64Time, u64AddTime);
+//			printf("\n***************  cDevId[%s] v_pts=%lu rtsp_time_stamp =%lu, u64AddTime=%lu   \n", pStreamNode->cDevId, (HB_U64) (stCmdHead.v_pts), u64Time, u64AddTime);
 			uCurNodeDataSize = 0;
 			if (I_FRAME == stCmdHead.data_type) //I帧
 			{
+//				printf("\n***************  cDevId[%s] v_pts=%lu rtsp_time_stamp =%lu, u64AddTime=%lu   \n", pStreamNode->cDevId, (HB_U64) (stCmdHead.v_pts), u64Time, u64AddTime);
 				ps_process(&stPsInfo, pVideoDataNode + iRtpDataBufPreSize + 32, stCmdHead.cmd_length, 1, pPsData+iRtpDataBufPreSize, &iPsDataLen, u64Time, u64AddTime);
 //    			write(ps_fd, p_ps_data+iRtpDataBufPreSize, ps_data_len);
 				uCurNodeDataSize = pack_ps_rtp_and_add_node(pStreamNode, pPsData, iPsDataLen, u64Time, iRtpDataBufPreSize, 1);

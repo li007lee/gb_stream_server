@@ -125,9 +125,9 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 		{
 #if 1
 			HB_CHAR cHashSource[128] = {0};
-			snprintf(cHashSource, sizeof(cHashSource), "%s_%d_%d", stSipNode.cSipDevSn, stSipNode.iDevChnl, stSipNode.iStreamType);
+			snprintf(cHashSource, sizeof(cHashSource), "%s_%d_%d", stSipNode.cDevId, stSipNode.iDevChnl, stSipNode.iStreamType);
 			TRACE_YELLOW("\nIIIIIIIIIIII  insert_node_to_stream_hash_table cDevId=[%s], cCallId=[%s], uStreamHashTableLen=[%d]\n", \
-							stSipNode.cSipDevSn, stSipNode.cCallId, glStreamHashTable->uStreamHashTableLen);
+							stSipNode.cDevId, stSipNode.cCallId, glStreamHashTable->uStreamHashTableLen);
 			HB_U32 uHashValue = get_stream_hash_value(glStreamHashTable, cHashSource);
 			pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 			pStreamNode = insert_node_to_stream_hash_table(glStreamHashTable, uHashValue, &stSipNode);
@@ -170,8 +170,8 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 					event_add(pClientNode->stUdpVideoInfo.evUdpSendRtcpEvent, &tv);
 				}
 
-				TRACE_BLUE("#######################append client  cCallId:[%s]\n", stSipNode.cCallId);
 				list_append(&(pStreamNode->listClientNodeHead), pClientNode);
+				TRACE_BLUE("#######################append client  cCallId:[%s], total_client:[%d]\n", stSipNode.cCallId, list_size(&(pStreamNode->listClientNodeHead)));
 			}
 
 			play_rtsp_video_from_hbserver(pStreamNode);
@@ -185,7 +185,7 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 		{
 			printf("\n*************************** recv del client from sip\n");
 			HB_CHAR cHashSource[128] = {0};
-			snprintf(cHashSource, sizeof(cHashSource), "%s_%d_%d", stSipNode.cSipDevSn, stSipNode.iDevChnl, stSipNode.iStreamType);
+			snprintf(cHashSource, sizeof(cHashSource), "%s_%d_%d", stSipNode.cDevId, stSipNode.iDevChnl, stSipNode.iStreamType);
 			HB_U32 uHashValue = get_stream_hash_value(glStreamHashTable, cHashSource);
 			pthread_mutex_lock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 			pStreamNode = find_node_from_stream_hash_table(glStreamHashTable, uHashValue, &stSipNode);

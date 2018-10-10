@@ -71,12 +71,12 @@ STREAM_NODE_HANDLE insert_node_to_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHa
 		//创建设备节点
 		pStreamNode = create_stream_node(pHashTable, uHashValue, pSipNode);
 		list_append(&(pHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), (HB_VOID*)pStreamNode);
-		TRACE_GREEN("$$$$$$$$$$$$$$$$$$$$$$$ Add pStreamNode Sn:[%s] Chnl:[%d] StreamType[%d]\n", pSipNode->cSipDevSn, pSipNode->iDevChnl, pSipNode->iStreamType);
+		TRACE_GREEN("$$$$$$$$$$$$$$$$$$$$$$$ Add pStreamNode Sn:[%s] Chnl:[%d] StreamType[%d]\n", pSipNode->cDevId, pSipNode->iDevChnl, pSipNode->iStreamType);
 	}
 	else
 	{
 //		printf("$$$$$$$$$$$$$$$$$$$$$$$have pStreamNode\n");
-		TRACE_GREEN("$$$$$$$$$$$$$$$$$$$$$$$ Allready have Sn:[%s] Chnl:[%d] StreamType[%d]\n", pSipNode->cSipDevSn, pSipNode->iDevChnl, pSipNode->iStreamType);
+		TRACE_GREEN("$$$$$$$$$$$$$$$$$$$$$$$ Allready have dev_id:[%s] Chnl:[%d] StreamType[%d]\n", pSipNode->cDevId, pSipNode->iDevChnl, pSipNode->iStreamType);
 	}
 
 //	pthread_mutex_unlock(&(pHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
@@ -86,12 +86,12 @@ STREAM_NODE_HANDLE insert_node_to_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHa
 
 STREAM_NODE_HANDLE find_node_from_stream_hash_table(STREAM_HASH_TABLE_HANDLE pHashTable, HB_U32 uHashValue, SIP_NODE_HANDLE pSipNode)
 {
-	TRACE_YELLOW("\nFFFFFFFFFF  find_node_from_stream_hash_table cDevId=[%s], uStreamHashTableLen=[%d]\n", pSipNode->cSipDevSn, pHashTable->uStreamHashTableLen);
+	TRACE_YELLOW("\nFFFFFFFFFF  find_node_from_stream_hash_table cDevId=[%s], uStreamHashTableLen=[%d]\n", pSipNode->cDevId, pHashTable->uStreamHashTableLen);
 	list_attributes_seeker(&(pHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), find_dev_id_chnl_stream_key);
 	STREAM_NODE_HANDLE stream_node = list_seek(&(pHashTable->pStreamHashNodeHead[uHashValue].listStreamNodeHead), pSipNode);
 	if(NULL == stream_node)
 	{
-		printf("do not found dev sn:[%s] chnl:[%d] stream_type:[%d]!\n", pSipNode->cSipDevSn, pSipNode->iDevChnl, pSipNode->iStreamType);
+		printf("do not found dev dev_id:[%s] chnl:[%d] stream_type:[%d]!\n", pSipNode->cDevId, pSipNode->iDevChnl, pSipNode->iStreamType);
 	}
 	return stream_node;
 }

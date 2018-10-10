@@ -23,10 +23,9 @@ struct bufferevent *sip_stream_msg_pair[2];
 struct event_base *pEventBase;
 stpool_t *glGbThreadPool;
 
-
 HB_VOID sip_pair_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 {
-	SIP_STREAM_MSG_ARGS_HANDLE pRecvFromStreamBevArg = (SIP_STREAM_MSG_ARGS_HANDLE)arg;
+	SIP_STREAM_MSG_ARGS_HANDLE pRecvFromStreamBevArg = (SIP_STREAM_MSG_ARGS_HANDLE) arg;
 
 	printf("#####sip_pair_read_cb() recv recv from stream moudle!\n");
 	switch (pRecvFromStreamBevArg->enumCmdType)
@@ -47,11 +46,7 @@ HB_VOID sip_pair_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 			break;
 	}
 
-
-
 }
-
-
 
 static HB_S32 build_response_default(osip_message_t ** dest, osip_dialog_t * dialog, int status, osip_message_t * request)
 {
@@ -204,7 +199,6 @@ static HB_S32 build_response_default(osip_message_t ** dest, osip_dialog_t * dia
 	return OSIP_SUCCESS;
 }
 
-
 static HB_S32 parase_invite(osip_message_t ** pSipMsg, SIP_DEV_ARGS_HANDLE pSipDevInfo)
 {
 	osip_body_t *pBody = NULL;
@@ -243,7 +237,8 @@ static HB_S32 parase_invite(osip_message_t ** pSipMsg, SIP_DEV_ARGS_HANDLE pSipD
 		sdp_destroy(pSdp);
 		return -1;
 	}
-	sdp_origin_get(pSdp, (const HB_CHAR **)&pUserName, (const HB_CHAR **)&pSession, (const HB_CHAR **)&pVersion, (const HB_CHAR **)&pNetwork, (const HB_CHAR **)&pAddrType, (const HB_CHAR **)&pAddress);
+	sdp_origin_get(pSdp, (const HB_CHAR **) &pUserName, (const HB_CHAR **) &pSession, (const HB_CHAR **) &pVersion, (const HB_CHAR **) &pNetwork,
+					(const HB_CHAR **) &pAddrType, (const HB_CHAR **) &pAddress);
 	strncpy(pSipDevInfo->cDevSn, pUserName, sizeof(pSipDevInfo->cDevSn));
 //	strncpy(pSipDevInfo->cPushIp, pAddress, sizeof(pSipDevInfo->cPushIp));
 
@@ -251,7 +246,7 @@ static HB_S32 parase_invite(osip_message_t ** pSipMsg, SIP_DEV_ARGS_HANDLE pSipD
 	HB_CHAR *pClientNetwork = NULL;
 	HB_CHAR *pClientAddrType = NULL;
 	HB_CHAR *pClientAddress = NULL;
-	sdp_connection_get(pSdp, (const HB_CHAR **)&pClientNetwork, (const HB_CHAR **)&pClientAddrType, (const HB_CHAR **)&pClientAddress);
+	sdp_connection_get(pSdp, (const HB_CHAR **) &pClientNetwork, (const HB_CHAR **) &pClientAddrType, (const HB_CHAR **) &pClientAddress);
 	strncpy(pSipDevInfo->cPushIp, pClientAddress, sizeof(pSipDevInfo->cPushIp));
 	printf("pSipDevInfo->cPushIp=%s\n", pSipDevInfo->cPushIp);
 
@@ -281,7 +276,7 @@ static HB_S32 parase_invite(osip_message_t ** pSipMsg, SIP_DEV_ARGS_HANDLE pSipD
 			HB_CHAR *pVideoStreamSourceInfo = NULL;
 			HB_CHAR cStreamSourcePort[8] = { 0 };
 			pVideoStreamSourceInfo = sdp_media_attribute_find(pSdp, i, "sms");
-			if(NULL != pVideoStreamSourceInfo)
+			if (NULL != pVideoStreamSourceInfo)
 			{
 				sscanf(pVideoStreamSourceInfo, "%[^:]:%[^/]/%s", pSipDevInfo->cStreamSourceIp, cStreamSourcePort, pSipDevInfo->cDevId);
 				pSipDevInfo->iStreamSourcePort = atoi(cStreamSourcePort);
@@ -416,7 +411,8 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 								"a=streamMode:%d\r\n"
 								"a=sendonly\r\n"
 								"a=rtpmap:96 PS/90000\r\n"
-								"y=%u\r\n\r\n", pSipNode->cSipDevSn, pSipNode->cPushIp, glGlobleArgs.cLocalIp, pSipNode->iUdpSendStreamPort, pSipNode->iStreamType, pSipNode->u32Ssrc);
+								"y=%u\r\n\r\n", pSipNode->cSipDevSn, pSipNode->cPushIp, glGlobleArgs.cLocalIp, pSipNode->iUdpSendStreamPort,
+								pSipNode->iStreamType, pSipNode->u32Ssrc);
 
 				osip_message_set_body(pResponseMsg, cResponseBody, strlen(cResponseBody));
 				osip_message_to_str(pResponseMsg, &pTmpBufDest, (size_t *) &iMessageLen);
@@ -488,56 +484,48 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 	return;
 }
 
-
-static HB_VOID timeout_cb(evutil_socket_t iSockFd, HB_S16 iEvents, HB_HANDLE hArg)
-{
-	printf("curtain time : %ld.\n", time(NULL));
-}
-
-
-
 static HB_S32 get_current_process_mem(pid_t p)
 {
-    HB_CHAR file[64] = {0};//文件名
-    HB_CHAR line_buff[256] = {0};  //读取行的缓冲区
-    HB_CHAR name[32];//存放项目名称
-    HB_CHAR *tmp_p = NULL;
-    //获取vmrss:实际物理内存占用
-    HB_S32 i = 0;
-    HB_S32 vmrss = 0;//存放内存
-    FILE *fd;         //定义文件指针fd
+	HB_CHAR file[64] = { 0 }; //文件名
+	HB_CHAR line_buff[256] = { 0 };  //读取行的缓冲区
+	HB_CHAR name[32];  //存放项目名称
+	HB_CHAR *tmp_p = NULL;
+	//获取vmrss:实际物理内存占用
+	HB_S32 i = 0;
+	HB_S32 vmrss = 0;  //存放内存
+	FILE *fd;         //定义文件指针fd
 
-    sprintf(file,"/proc/%d/status",p);
-   // fprintf (stderr, "current pid:%d\n", p);
-    fd = fopen (file, "r"); //以R读的方式打开文件再赋给指针fd
-    if(NULL == fd)
-    {
-    	return HB_FAILURE;
-    }
-    //读取VmRSS这一行的数据
-    for (i=0;i<VMRSS_LINE-1;i++)
-    {
-    	tmp_p = fgets (line_buff, sizeof(line_buff), fd);
-    	if(NULL == tmp_p)
-        {
-    		fclose(fd);
-        	return HB_FAILURE;
-        }
-    }
-    tmp_p  = fgets (line_buff, sizeof(line_buff), fd);
-	if(NULL == tmp_p)
-    {
+	sprintf(file, "/proc/%d/status", p);
+	// fprintf (stderr, "current pid:%d\n", p);
+	fd = fopen(file, "r"); //以R读的方式打开文件再赋给指针fd
+	if (NULL == fd)
+	{
+		return HB_FAILURE;
+	}
+	//读取VmRSS这一行的数据
+	for (i = 0; i < VMRSS_LINE - 1; i++)
+	{
+		tmp_p = fgets(line_buff, sizeof(line_buff), fd);
+		if (NULL == tmp_p)
+		{
+			fclose(fd);
+			return HB_FAILURE;
+		}
+	}
+	tmp_p = fgets(line_buff, sizeof(line_buff), fd);
+	if (NULL == tmp_p)
+	{
 		fclose(fd);
-    	return HB_FAILURE;
-    }
-    if(-1 == sscanf (line_buff, "%s %d", name,&vmrss))
-    {
+		return HB_FAILURE;
+	}
+	if (-1 == sscanf(line_buff, "%s %d", name, &vmrss))
+	{
 		fclose(fd);
-    	return HB_FAILURE;
-    }
-    //fprintf (stderr, "====%s：%d====\n", name,vmrss);
-    fclose(fd);
-    return vmrss;
+		return HB_FAILURE;
+	}
+	//fprintf (stderr, "====%s：%d====\n", name,vmrss);
+	fclose(fd);
+	return vmrss;
 }
 
 static HB_VOID *scanning_task(HB_VOID *param)
@@ -549,11 +537,11 @@ static HB_VOID *scanning_task(HB_VOID *param)
 	while (1)
 	{
 		sleep(5);
-		total_events_num = event_base_get_num_events(pEventBase, EVENT_BASE_COUNT_ADDED);//获取base中活跃event的数量
+		total_events_num = event_base_get_num_events(pEventBase, EVENT_BASE_COUNT_ADDED); //获取base中活跃event的数量
 		current_process_used_mem = get_current_process_mem(getpid());
-	    stpool_stat(glGbThreadPool, &rtsp_pool_stat);
+		stpool_stat(glGbThreadPool, &rtsp_pool_stat);
 		printf("\n############ UsedMem=%d  TotalEvents=%d  PoolTotalThread=%d  PoolActiveThread=%d\n", current_process_used_mem, total_events_num,
-				rtsp_pool_stat.curthreads, rtsp_pool_stat.curthreads_active);
+						rtsp_pool_stat.curthreads, rtsp_pool_stat.curthreads_active);
 	}
 	return NULL;
 }
@@ -602,7 +590,7 @@ HB_S32 start_sip_moudle()
 	//MIN_THREADS	     -创建线程池后启动的线程数
 	//0,	   				  -do not suspend the pool
 	//1,	   				   -优先级队列数
-	glGbThreadPool = stpool_create("rtsp_server_pool", eCAPs, MAX_THREADS, MIN_THREADS, 0, 1);
+	glGbThreadPool = stpool_create("rtsp_server_pool", eCAPs, glGlobleArgs.iMaxConnections, glGlobleArgs.iMaxConnections, 0, 1);
 	//rtsp_pool = stpool_create("rtsp_server_pool", eCAPs, atoi(argv[2])+10, atoi(argv[2]), 0, 1);
 	if (!glGbThreadPool)
 	{
@@ -635,12 +623,12 @@ HB_S32 start_sip_moudle()
 	}
 
 #if 0 //测试专用
-
 	int i;
 	struct event evTimer;
-    event_assign(&evTimer, pEventBase, -1, EV_PERSIST, timeout_cb, (HB_HANDLE)&evTimer);
-    struct timeval tv = {120, 0};
-    event_add(&evTimer, &tv);
+	event_assign(&evTimer, pEventBase, -1, EV_PERSIST, timeout_cb, (HB_HANDLE)&evTimer);
+	struct timeval tv =
+	{	120, 0};
+	event_add(&evTimer, &tv);
 
 	for (i=0;i<100;++i)
 	{
@@ -672,8 +660,8 @@ HB_S32 start_sip_moudle()
 		usleep(100000);
 	}
 
-    event_base_dispatch(pEventBase);
-    event_base_free(pEventBase);
+	event_base_dispatch(pEventBase);
+	event_base_free(pEventBase);
 #else
 
 	struct event evUdpEvent;
@@ -685,7 +673,6 @@ HB_S32 start_sip_moudle()
 	bufferevent_enable(sip_stream_msg_pair[1], EV_READ);
 //	bufferevent_setcb(sip_stream_msg_pair[0], sip_read_cb, NULL, NULL, NULL);
 //	bufferevent_enable(sip_stream_msg_pair[0], EV_READ | EV_PERSIST);
-
 
 	//任务扫描线程
 	pthread_attr_t attr;
@@ -699,5 +686,5 @@ HB_S32 start_sip_moudle()
 	event_base_free(pEventBase);
 #endif
 
-return HB_SUCCESS;
+	return HB_SUCCESS;
 }

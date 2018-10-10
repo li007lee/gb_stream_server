@@ -14,7 +14,7 @@
 #define CLIENT_MAXIMUM_BUFFER   (2097152)  //客户最大缓冲2M
 
 //以下是线程池的配置
-#define MIN_THREADS     (500)  //最小启动线程数
+#define MIN_THREADS     (100)  //最小启动线程数
 #define MAX_THREADS    (2500)  //线程数上限
 
 #define RTCP_SEND_TIMER	(15)	//用于发送rtcp消息的定时器时间 单位秒
