@@ -8,6 +8,8 @@
 #ifndef INC_COMMON_COMMON_ARGS_H_
 #define INC_COMMON_COMMON_ARGS_H_
 
+#include "server_config.h"
+
 typedef enum _CMD_TYPE
 {
 	PLAY=1,
@@ -28,6 +30,12 @@ typedef struct _GLOBLE_ARGS
 	HB_CHAR cLocalIp[16];
 	HB_CHAR	cNetworkCardName[32];
 	HB_S32	 iMaxConnections; //最大用户连接数，视频并发数
+
+#ifdef RECV_STREAM_FROM_BOX
+	HB_CHAR cBoxIp[16];
+	HB_S32	 iBoxPort;
+#endif
+
 }GLOBLE_ARGS_OBJ;
 
 extern GLOBLE_ARGS_OBJ glGlobleArgs;

@@ -8,6 +8,7 @@
 #include "event.h"
 #include "lf_queue.h"
 #include "cJSON.h"
+#include "server_config.h"
 
 
 #include "stream/rtp_pack.h"
@@ -455,13 +456,21 @@ static HB_VOID get_box_stream_task(struct sttask *ptsk)
 
 	do
 	{
+
+#ifdef RECV_STREAM_FROM_BOX
 		if (create_socket_connect_ipaddr(&(pStreamNode->iConnectBoxSockFd),\
-				pStreamNode->cDevIp, pStreamNode->iDevPort, 5) < 0)
+						glGlobleArgs.cBoxIp, glGlobleArgs.iBoxPort, 5) < 0)
+		{
+			TRACE_ERR("connect to media stream failed! ip:[%s],port:[%d]\n", glGlobleArgs.cBoxIp, glGlobleArgs.iBoxPort);
+			break;
+		}
+#else
+		if (create_socket_connect_ipaddr(&(pStreamNode->iConnectBoxSockFd),pStreamNode->cDevIp, pStreamNode->iDevPort, 5) < 0)
 		{
 			TRACE_ERR("connect to media stream failed! ip:[%s],port:[%d]\n", pStreamNode->cDevIp, pStreamNode->iDevPort);
 			break;
 		}
-
+#endif
 		epfd=epoll_create(1);
 		if(epfd <= 0)
 		{

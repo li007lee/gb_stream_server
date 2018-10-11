@@ -37,6 +37,14 @@ HB_S32 get_server_config()
 	{
 		glGlobleArgs.iMaxConnections = 1;
 	}
+
+#ifdef RECV_STREAM_FROM_BOX
+	get_string_value(fp, "BOX_CONFIG", "BoxIp", NULL, glGlobleArgs.cBoxIp, sizeof(glGlobleArgs.cNetworkCardName));
+	printf("glGlobleArgs.cBoxIp:[%s]\n", glGlobleArgs.cBoxIp);
+	glGlobleArgs.iBoxPort = get_int_value(fp, "BOX_CONFIG", "BoxPort", 8109);
+	printf("glGlobleArgs.iBoxPort:[%d]\n", glGlobleArgs.iBoxPort);
+#endif
+
 	close_config_file(fp);
 
 	return HB_SUCCESS;

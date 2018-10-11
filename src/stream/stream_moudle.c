@@ -123,7 +123,6 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 	{
 		case PLAY:
 		{
-#if 1
 			HB_CHAR cHashSource[128] = {0};
 			snprintf(cHashSource, sizeof(cHashSource), "%s_%d_%d", stSipNode.cDevId, stSipNode.iDevChnl, stSipNode.iStreamType);
 			TRACE_YELLOW("\nIIIIIIIIIIII  insert_node_to_stream_hash_table cDevId=[%s], cCallId=[%s], uStreamHashTableLen=[%d]\n", \
@@ -150,6 +149,7 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 
 				/*******************************测试专用*******************************/
 //				pClientNode->stUdpVideoInfo.rtp_peer.sin_port = htons(iSendToZhangPort++);
+//				inet_aton("192.168.118.2", &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
 //				inet_aton("172.16.3.200", &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
 //				inet_aton("127.0.0.1", &(pClientNode->stUdpVideoInfo.rtp_peer.sin_addr));
 				/*******************************测试专用*******************************/
@@ -174,10 +174,14 @@ HB_VOID stream_read_cb(struct bufferevent *buf_bev, HB_VOID *arg)
 				TRACE_BLUE("#######################append client  cCallId:[%s], total_client:[%d]\n", stSipNode.cCallId, list_size(&(pStreamNode->listClientNodeHead)));
 			}
 
+#ifdef RECV_STREAM_FROM_BOX
+			play_rtsp_video_from_box(pStreamNode);
+#else
 			play_rtsp_video_from_hbserver(pStreamNode);
-//			play_rtsp_video_from_box(pStreamNode);
-			pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
 #endif
+
+			pthread_mutex_unlock(&(glStreamHashTable->pStreamHashNodeHead[uHashValue].lockStreamNodeMutex));
+
 			printf("succeed!\n");
 		}
 			break;

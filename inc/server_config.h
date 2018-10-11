@@ -8,6 +8,8 @@
 #ifndef INCLUDE_SERVER_CONFIG_H_
 #define INCLUDE_SERVER_CONFIG_H_
 
+//#define RECV_STREAM_FROM_BOX
+
 #define CONFIGURE_PATH "../conf/config.ini" //配置文件路徑
 
 #define STREAM_DATA_FRAME_BUFFER_NUMS   (100)//视频数据缓冲帧数
