@@ -469,6 +469,7 @@ static HB_VOID udp_recv_cb(const HB_S32 iUdpSockFd, HB_S16 iWhich, HB_HANDLE hAr
 					bufferevent_setcb(sip_stream_msg_pair[1], stream_read_cb, NULL, NULL, NULL);
 					bufferevent_enable(sip_stream_msg_pair[1], EV_READ);
 					del_node_from_sip_hash_table(glSipHashTable, pSipNode);
+//					close(pSipNode->iUdpSendStreamSockFd);
 					free(pSipNode);
 					pSipNode = NULL;
 				}

@@ -63,6 +63,7 @@ HB_VOID destory_client_list(list_t *plistClientNodeHead)
 		}
 		if (pClientNode->stUdpVideoInfo.iUdpVideoFd > 0)
 		{
+//			printf("close fd!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 			close(pClientNode->stUdpVideoInfo.iUdpVideoFd);
 			pClientNode->stUdpVideoInfo.iUdpVideoFd = -1;
 		}

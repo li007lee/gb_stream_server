@@ -32,20 +32,23 @@ static HB_S32 find_call_id(const HB_VOID *el, const HB_VOID *key)
 static HB_S32 udp_bind_local_port(SIP_NODE_HANDLE pSipNode)
 {
 	HB_S32 iRet = 0;
+	struct sockaddr_in stUdpSendStreamAddr;
+	struct sockaddr_in stUdpRtcpListenAddr;
 
 	//创建rtp包发送套接字并绑定本地发送端口
 	pSipNode->iUdpSendStreamSockFd = socket(AF_INET, SOCK_DGRAM, 0);
-	struct sockaddr_in stUdpSendStreamAddr;
 	bzero(&stUdpSendStreamAddr, sizeof(stUdpSendStreamAddr));
 	stUdpSendStreamAddr.sin_family = AF_INET;
 	stUdpSendStreamAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	//创建rtcp通信套接字并绑定本地rtcp监听端口
-	pSipNode->iUdpRtcpSockFd = socket(AF_INET, SOCK_DGRAM, 0);
-	struct sockaddr_in stUdpRtcpListenAddr;
-	bzero(&stUdpRtcpListenAddr, sizeof(stUdpRtcpListenAddr));
-	stUdpRtcpListenAddr.sin_family = AF_INET;
-	stUdpRtcpListenAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	if (glGlobleArgs.iUseRtcpFlag)
+	{
+		//创建rtcp通信套接字并绑定本地rtcp监听端口
+		pSipNode->iUdpRtcpSockFd = socket(AF_INET, SOCK_DGRAM, 0);
+		bzero(&stUdpRtcpListenAddr, sizeof(stUdpRtcpListenAddr));
+		stUdpRtcpListenAddr.sin_family = AF_INET;
+		stUdpRtcpListenAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	}
 
 	pSipNode->iUdpSendStreamPort = 2 * random_number(10000, 20000);
 	while(1)
