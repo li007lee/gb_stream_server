@@ -485,10 +485,16 @@ static HB_VOID get_box_stream_task(struct sttask *ptsk)
 	    {
 	    	break;
 	    }
-		//连接前端盒子成功，发送要观看的设备信息json消息。
-		snprintf(cJsonCmd+sizeof(BOX_CTRL_CMD_OBJ), sizeof(cJsonCmd)-sizeof(BOX_CTRL_CMD_OBJ),
+
+		strncpy(cJsonCmd+sizeof(BOX_CTRL_CMD_OBJ),
 				"{\"cmdType\":\"open_video\",\"devId\":\"%s\",\"devChnl\":0,\"devStreamType\":0}",
-				"251227033954859-DS-2DC2204IW-D3%2fW20170528CCCH769439538");  //+8是跳过"YDT-BOX-"的长度
+				"YDT-ONVIF-251227033954916-1D01B11PAU06776", sizeof(cJsonCmd)-sizeof(BOX_CTRL_CMD_OBJ));
+
+
+		//连接前端盒子成功，发送要观看的设备信息json消息。
+//		snprintf(cJsonCmd+sizeof(BOX_CTRL_CMD_OBJ), sizeof(cJsonCmd)-sizeof(BOX_CTRL_CMD_OBJ),
+//				"{\"cmdType\":\"open_video\",\"devId\":\"%s\",\"devChnl\":0,\"devStreamType\":0}",
+//				"251227033954859-DS-2DC2204IW-D3%2fW20170528CCCH769439538");  //+8是跳过"YDT-BOX-"的长度
 
 
 //		snprintf(cJsonCmd+sizeof(BOX_CTRL_CMD_OBJ), sizeof(cJsonCmd)-sizeof(BOX_CTRL_CMD_OBJ),

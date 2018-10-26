@@ -5,7 +5,7 @@ PLATFORM?=X64
 BUILD?=RELEASE
 
 CROSS_COMPILE :=
-EXEC = gb_stream_server_$(PLATFORM)_$(DATE)
+EXEC = HbzhGb28181StreamServer_$(PLATFORM)_$(DATE)
 
 ##### Change the following for your environment:
 INCLUDES =  -I. -I$(PROJECT_DIR)/inc -I$(PROJECT_DIR)/inc/libevent -I$(PROJECT_DIR)/inc/common -I$(PROJECT_DIR)/src

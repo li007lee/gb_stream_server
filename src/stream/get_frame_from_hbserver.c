@@ -508,7 +508,7 @@ HB_S32 play_rtsp_video_from_hbserver(STREAM_NODE_HANDLE pStreamNode)
 //	bufferevent_set_timeouts(pConnectHbserverBev, &tv_read, NULL);
 
 	//设置bufferevent各回调函数
-	bufferevent_setcb(pConnectHbserverBev, NULL, NULL, connect_event_cb, (HB_VOID*) (pStreamNode));
+	bufferevent_setcb(pConnectHbserverBev, NULL, NULL, connect_event_cb, (HB_VOID*)(pStreamNode));
 	//启用读取或者写入事件
 	if (-1 == bufferevent_enable(pConnectHbserverBev, EV_READ))
 	{
